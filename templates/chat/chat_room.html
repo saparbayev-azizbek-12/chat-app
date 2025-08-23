@@ -1,0 +1,616 @@
+{% extends 'chat/base.html' %}
+
+{% block title %}
+    {% if other_participant %}
+        Chat with {{ other_participant.first_name }} {{ other_participant.last_name|default:other_participant.username }}
+    {% else %}
+        {{ chat_room.name|default:"Group Chat" }}
+    {% endif %} - ChatApp
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="chat-container">
+    <!-- Mobile Header -->
+    <div class="mobile-header">
+        <button class="back-button" onclick="goBack()">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+        {% if other_participant %}
+            <div class="avatar-container me-2">
+                {% if other_participant.profile_picture %}
+                    <img src="{{ other_participant.profile_picture.url }}" alt="{{ other_participant.username }}" class="avatar" style="width: 35px; height: 35px;">
+                {% else %}
+                    <div class="avatar" style="width: 35px; height: 35px; font-size: 14px;">
+                        {{ other_participant.first_name.0|default:other_participant.username.0|upper }}
+                    </div>
+                {% endif %}
+                {% if other_participant.is_online %}
+                    <div class="online-indicator"></div>
+                {% endif %}
+            </div>
+            <div class="flex-grow-1">
+                <h6 class="mb-0" style="font-size: 16px;">{{ other_participant.first_name }} {{ other_participant.last_name|default:other_participant.username }}</h6>
+                <small class="text-light" style="font-size: 12px;">
+                    {% if other_participant.is_online %}
+                        Online
+                    {% else %}
+                        Last seen {{ other_participant.last_seen|timesince }} ago
+                    {% endif %}
+                </small>
+            </div>
+        {% else %}
+            <div class="flex-grow-1">
+                <h6 class="mb-0" style="font-size: 16px;">{{ chat_room.name|default:"Group Chat" }}</h6>
+                <small class="text-light" style="font-size: 12px;">{{ chat_room.participants.count }} members</small>
+            </div>
+        {% endif %}
+        <div class="ms-auto d-flex gap-2">
+            <button class="action-button" onclick="toggleMobileNavbar()" style="width: 40px; height: 40px;">
+                <i class="fas fa-bars"></i>
+            </button>
+            <button class="action-button" onclick="toggleChatOptions()" style="width: 40px; height: 40px;">
+                <i class="fas fa-ellipsis-v"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Mobile Dropdown Navbar (replaces sidebar on mobile and tablet) -->
+    <div class="mobile-navbar" id="mobileNavbar">
+        <div class="mobile-navbar-header p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">ChatApp</h5>
+                <button class="btn btn-link text-white p-0" onclick="closeMobileNavbar()">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="mobile-navbar-content">
+            <div class="list-group list-group-flush">
+                <a href="{% url 'chat:home' %}" class="list-group-item list-group-item-action bg-transparent text-white border-0">
+                    <i class="fas fa-home me-3"></i>Home
+                </a>
+                <a href="{% url 'chat:search_users' %}" class="list-group-item list-group-item-action bg-transparent text-white border-0">
+                    <i class="fas fa-search me-3"></i>New Chat
+                </a>
+
+                <a href="{% url 'chat:profile' %}" class="list-group-item list-group-item-action bg-transparent text-white border-0">
+                    <i class="fas fa-user me-3"></i>Profile
+                </a>
+                <div class="dropdown-divider bg-light opacity-25"></div>
+                <button class="list-group-item list-group-item-action bg-transparent text-white border-0" onclick="toggleTheme()">
+                    <i class="fas fa-moon me-3"></i>Dark Mode
+                </button>
+                <a href="{% url 'chat:logout' %}" class="list-group-item list-group-item-action bg-transparent text-white border-0">
+                    <i class="fas fa-sign-out-alt me-3"></i>Logout
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar (hidden on mobile and tablet in chat view) -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">Chats</h4>
+                <div class="dropdown">
+                    <button class="btn btn-link text-decoration-none text-white" type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'chat:profile' %}">
+                            <i class="fas fa-user me-2"></i>Profile
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'chat:search_users' %}">
+                            <i class="fas fa-search me-2"></i>Find Users
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'chat:logout' %}">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="Search chats" id="searchInput">
+            </div>
+        </div>
+
+        <div class="chat-list">
+            <a href="{% url 'chat:home' %}" class="text-decoration-none">
+                <div class="chat-item">
+                    <div class="avatar">
+                        <i class="fas fa-arrow-left"></i>
+                    </div>
+                    <div class="chat-info">
+                        <div class="chat-name">Back to Chats</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Selection Mode Header -->
+    <div class="selection-header d-none" id="selectionHeader">
+        <div class="selection-header-content">
+            <button class="btn-cancel-selection" id="cancelSelectionBtn">
+                <i class="fas fa-times"></i>
+            </button>
+            <span class="selection-count" id="selectionCount">0 selected</span>
+            <button class="btn-delete-selected" id="deleteSelectedBtn">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Chat Area -->
+    <div class="main-content">
+        <!-- Desktop Chat Header -->
+        <div class="chat-header" data-participant-id="{{ other_participant.id }}">
+            {% if other_participant %}
+                <div class="avatar-container me-3">
+                    {% if other_participant.profile_picture %}
+                        <img src="{{ other_participant.profile_picture.url }}" alt="{{ other_participant.username }}" class="avatar">
+                    {% else %}
+                        <div class="avatar">
+                            {{ other_participant.first_name.0|default:other_participant.username.0|upper }}
+                        </div>
+                    {% endif %}
+                    {% if other_participant.is_online %}
+                        <div class="online-indicator"></div>
+                    {% endif %}
+                </div>
+                <div class="flex-grow-1">
+                    <h5 class="mb-0">{{ other_participant.first_name }} {{ other_participant.last_name|default:other_participant.username }}</h5>
+                    <small class="text-light status-text">
+                        {% if other_participant.is_online %}
+                            Online
+                        {% else %}
+                            Last seen {{ other_participant.last_seen|timesince }} ago
+                        {% endif %}
+                    </small>
+                </div>
+            {% else %}
+                <div class="avatar me-3">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h5 class="mb-0">{{ chat_room.name|default:"Group Chat" }}</h5>
+                    <small class="text-light">{{ chat_room.participants.count }} members</small>
+                </div>
+            {% endif %}
+            
+            <div class="d-flex gap-2">
+                <button class="action-button" onclick="toggleFileUpload()">
+                    <i class="fas fa-paperclip"></i>
+                </button>
+                <button class="action-button" onclick="toggleChatOptions()">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Messages Area -->
+        <div class="chat-messages" id="messagesContainer">
+            {% for message in messages %}
+                <div class="message {% if message.sender == user %}sent{% else %}received{% endif %}" data-message-id="{{ message.id }}">
+                    {% if message.sender != user %}
+                        <div class="avatar-container me-2">
+                            {% if message.sender.profile_picture %}
+                                <img src="{{ message.sender.profile_picture.url }}" alt="{{ message.sender.username }}" class="avatar">
+                            {% else %}
+                                <div class="avatar">
+                                    {{ message.sender.first_name.0|default:message.sender.username.0|upper }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="message-bubble">
+                        {% if message.message_type == 'text' %}
+                            {{ message.content|linebreaks }}
+                        {% elif message.message_type == 'image' %}
+                            <div class="media-message">
+                                <img src="{{ message.file.url }}" alt="Image" onclick="openImageModal('{{ message.file.url }}')" style="cursor: pointer;">
+                            {% if message.content %}
+                                    <div class="mt-2">{{ message.content }}</div>
+                            {% endif %}
+                            </div>
+                        {% elif message.message_type == 'video' %}
+                            <div class="media-message">
+                                <video controls>
+                                <source src="{{ message.file.url }}" type="video/mp4">
+                                    Your browser does not support video playback.
+                            </video>
+                            {% if message.content %}
+                                    <div class="mt-2">{{ message.content }}</div>
+                            {% endif %}
+                            </div>
+                        {% elif message.message_type == 'audio' or message.message_type == 'voice' %}
+                            <div class="voice-message">
+                                <button class="voice-play-button" onclick="toggleAudioPlayback('{{ message.id }}')">
+                                    <i class="fas fa-play" id="play-icon-{{ message.id }}"></i>
+                                </button>
+                                <div class="voice-waveform">
+                                    <div class="waveform-bars">
+                                        <div class="bar" style="height: 15px;"></div>
+                                        <div class="bar" style="height: 25px;"></div>
+                                        <div class="bar" style="height: 20px;"></div>
+                                        <div class="bar" style="height: 30px;"></div>
+                                        <div class="bar" style="height: 18px;"></div>
+                                        <div class="bar" style="height: 25px;"></div>
+                                        <div class="bar" style="height: 15px;"></div>
+                                        <div class="bar" style="height: 22px;"></div>
+                                    </div>
+                                </div>
+                                <span class="voice-duration">
+                                    {% if message.duration %}{{ message.duration }}s{% else %}0:00{% endif %}
+                                </span>
+                                <audio id="audio-{{ message.id }}" src="{{ message.file.url }}" style="display: none;"></audio>
+                            </div>
+                        {% elif message.message_type == 'file' %}
+                            <div class="file-message">
+                                <div class="file-icon">
+                                    <i class="fas fa-file"></i>
+                                </div>
+                                <div class="file-info">
+                                    <div class="file-name">
+                                        <a href="{{ message.file.url }}" target="_blank" rel="noopener">
+                                        {{ message.file.name|default:"Download File" }}
+                                    </a>
+                                    </div>
+                                    {% if message.file_size %}
+                                        <div class="file-size">{{ message.file_size|filesizeformat }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                        <div class="message-time">
+                            {{ message.created_at|date:"H:i" }}
+                            {% if message.sender == user %}
+                                <i class="fas fa-check message-status" title="Sent"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-comments fa-3x mb-3"></i>
+                    <p>No messages yet. Start the conversation!</p>
+                </div>
+            {% endfor %}
+            
+            <!-- Typing indicator -->
+            <div class="typing-indicator d-none" id="typingIndicator">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- File Upload Area -->
+        <div class="file-upload-area d-none" id="fileUploadArea">
+            <i class="fas fa-cloud-upload-alt fa-2x mb-2"></i>
+            <p>Drag and drop files here or click to select</p>
+            <input type="file" id="fileInput" accept=".jpg,.jpeg,.png" style="display: none;">
+        </div>
+
+        <!-- Image Preview Modal -->
+        <div class="image-preview-modal d-none" id="imagePreviewModal">
+            <div class="image-preview-content">
+                <div class="image-preview-header">
+                    <h5>Send Image</h5>
+                </div>
+                <div class="image-preview-body">
+                    <img id="previewImage" src="" alt="Preview" class="preview-image">
+                </div>
+                <div class="image-preview-actions">
+                    <button type="button" class="btn-cancel" id="cancelImageBtn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <button type="button" class="btn-send" id="sendImageBtn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation Modal -->
+        <div class="delete-modal d-none" id="deleteModal">
+            <div class="delete-modal-content">
+                <div class="delete-modal-header">
+                    <h5>Delete Messages</h5>
+                </div>
+                <div class="delete-modal-body">
+                    <p>Are you sure you want to delete <span id="deleteCountText">0</span> message(s)?</p>
+                    <p class="text-muted small">This action cannot be undone.</p>
+                </div>
+                <div class="delete-modal-actions">
+                    <button type="button" class="btn-cancel" id="cancelDeleteBtn">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn-confirm-delete" id="confirmDeleteBtn">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Voice Recording Interface -->
+        <div class="voice-recording d-none" id="voiceRecording">
+            <div class="recording-indicator">
+                <div class="recording-dot"></div>
+                <span>Recording... <span class="recording-time" id="recordingTime">00:00</span></span>
+            </div>
+            <div class="recording-actions">
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="cancelVoiceRecording()">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="stopVoiceRecording()">
+                    <i class="fas fa-stop"></i> Send
+                </button>
+            </div>
+        </div>
+
+        <!-- Message Input -->
+        <div class="message-input-container">
+            <!-- Emoji Picker -->
+            <div class="emoji-picker d-none" id="emojiPicker">
+                <div class="emoji-categories">
+                    <button class="emoji-category active" data-category="smileys">😀</button>
+                    <button class="emoji-category" data-category="people">👋</button>
+                    <button class="emoji-category" data-category="nature">🌸</button>
+                    <button class="emoji-category" data-category="food">🍕</button>
+                    <button class="emoji-category" data-category="activities">⚽</button>
+                    <button class="emoji-category" data-category="travel">🚗</button>
+                    <button class="emoji-category" data-category="objects">💡</button>
+                    <button class="emoji-category" data-category="symbols">❤️</button>
+                </div>
+                <div class="emoji-grid" id="emojiGrid">
+                    <!-- Emojis will be populated by JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Normal message input -->
+            <div id="normalMessageInput" class="message-input">
+                <div class="input-actions">
+                    <button type="button" class="action-button" onclick="toggleFileUpload()" title="Attach file">
+                    <i class="fas fa-paperclip"></i>
+                </button>
+                </div>
+                
+                <textarea id="messageInput" class="form-control message-input-field" placeholder="Type a message..." rows="1" autocomplete="off"></textarea>
+                
+                <div class="input-actions">
+                    <button type="button" class="action-button" onclick="console.log('Emoji button clicked!'); toggleEmojiPicker()" title="Add emoji">
+                    <i class="fas fa-smile"></i>
+                </button>
+                
+                    <button type="button" id="voiceButton" class="action-button" onclick="startVoiceRecording()" title="Voice message">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                </div>
+                
+                <button type="button" id="sendButton" class="send-button" onclick="sendMessage()" title="Send message">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+
+            <!-- Voice recording input -->
+            <div id="voiceRecordingInput" class="message-input d-none">
+                <div class="voice-recording-display">
+                    <div class="recording-info">
+                        <i class="fas fa-microphone text-danger me-2"></i>
+                        <span class="recording-text">Recording...</span>
+                    </div>
+                    <div class="recording-timer" id="recordingTimerDisplay">00:00</div>
+                </div>
+                
+                <div class="voice-actions">
+                    <button type="button" class="action-button btn-danger" onclick="console.log('Cancel clicked!'); cancelVoiceRecording()" title="Cancel">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <button type="button" class="action-button btn-primary" onclick="console.log('Stop clicked!'); stopVoiceRecording()" title="Send">
+                        <i class="fas fa-stop"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chat Options Modal -->
+<div class="modal fade" id="chatOptionsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Chat Options</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="list-group list-group-flush">
+                    {% if other_participant %}
+                        <a href="{% url 'chat:add_contact' other_participant.id %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-user-plus me-2"></i>Add to Contacts
+                        </a>
+                    {% endif %}
+                    <button class="list-group-item list-group-item-action" onclick="clearChat()">
+                        <i class="fas fa-trash me-2"></i>Clear Chat History
+                    </button>
+                    <button class="list-group-item list-group-item-action" onclick="toggleTheme()">
+                        <i class="fas fa-moon me-2"></i>Toggle Dark Mode
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sidebar Overlay for Mobile -->
+<div class="sidebar-overlay" onclick="closeSidebar()"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize chat variables
+    const roomId = '{{ room_id|escapejs }}';
+    
+    const currentUser = {
+        id: '{{ user.id|escapejs }}',
+        username: '{{ user.username|escapejs }}',
+        first_name: '{{ user.first_name|escapejs }}',
+        last_name: '{{ user.last_name|escapejs }}'
+    };
+    
+    // Get last message time from template  
+    const lastMessageTime = {% if last_message_time %}'{{ last_message_time|escapejs }}'{% else %}null{% endif %};
+    
+    // Initialize chat when page loads
+    function initializeChatRoom() {
+        // Wait a bit for chat.js to load
+        if (typeof initializeChat === 'function') {
+            initializeChat(roomId, currentUser);
+            
+            // Set last message time if we have messages in template
+            if (lastMessageTime && chatApp) {
+                chatApp.lastMessageTime = lastMessageTime;
+                console.log('Set initial lastMessageTime to:', lastMessageTime);
+            }
+        } else {
+            console.log('initializeChat not ready, retrying...');
+            setTimeout(initializeChatRoom, 100);
+        }
+    }
+    
+    // Start initialization
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeChatRoom);
+    } else {
+        initializeChatRoom();
+    }
+    
+    // Additional utility functions
+    function goBack() {
+        window.history.back();
+    }
+    
+    function toggleChatOptions() {
+        const modal = new bootstrap.Modal(document.getElementById('chatOptionsModal'));
+        modal.show();
+    }
+
+    function clearChat() {
+        if (confirm('Are you sure you want to clear the chat history?')) {
+            // TODO: Implement clear chat functionality
+            console.log('Clear chat confirmed');
+        }
+    }
+
+    function toggleTheme() {
+        const body = document.body;
+        const currentTheme = body.classList.contains('theme-dark') ? 'dark' : 'light';
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        body.classList.remove(`theme-${currentTheme}`);
+        body.classList.add(`theme-${newTheme}`);
+        
+        // Save theme preference
+        fetch('/api/update-theme/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ theme: newTheme })
+        }).catch(console.error);
+    }
+    
+    function closeSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.querySelector('.sidebar-overlay');
+        
+        if (sidebar) sidebar.classList.remove('show');
+        if (overlay) overlay.classList.remove('show');
+    }
+    
+    // Mobile navbar functions
+    function toggleMobileNavbar() {
+        const navbar = document.getElementById('mobileNavbar');
+        navbar.classList.toggle('show');
+        
+        if (navbar.classList.contains('show')) {
+            document.body.style.overflow = 'hidden';
+            } else {
+            document.body.style.overflow = '';
+        }
+    }
+    
+    function closeMobileNavbar() {
+        const navbar = document.getElementById('mobileNavbar');
+        navbar.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+    
+    // Helper function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Voice recording global functions
+    function startVoiceRecording() {
+        if (chatApp) {
+            chatApp.startVoiceRecording();
+        }
+    }
+    
+    function stopVoiceRecording() {
+        if (chatApp) {
+            chatApp.stopVoiceRecording();
+        }
+    }
+    
+    function cancelVoiceRecording() {
+        if (chatApp) {
+            chatApp.cancelVoiceRecording();
+        }
+    }
+    
+    function togglePreviewPlayback() {
+        const audio = document.getElementById('previewAudio');
+        const playBtn = document.getElementById('previewPlayBtn');
+        
+        if (audio.paused) {
+            audio.play();
+            playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+        } else {
+            audio.pause();
+            playBtn.innerHTML = '<i class="fas fa-play"></i>';
+        }
+    }
+    
+    function sendVoiceMessage() {
+        if (chatApp && chatApp.recordedBlob) {
+            chatApp.uploadVoiceMessage(chatApp.recordedBlob);
+            bootstrap.Modal.getInstance(document.getElementById('voicePreviewModal')).hide();
+        }
+    }
+</script>
+
+
+
+
+
+{% endblock %}

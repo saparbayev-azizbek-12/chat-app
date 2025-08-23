@@ -1,0 +1,660 @@
+{% extends 'chat/base.html' %}
+
+{% block title %}Create Group - ChatApp{% endblock %}
+
+{% block content %}
+<div class="chat-container">
+    <!-- Mobile Header -->
+    <div class="mobile-header d-md-none">
+        <button class="back-button" onclick="goBack()">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+        <h5 class="mb-0">New Group</h5>
+    </div>
+
+    <!-- Sidebar (hidden on mobile) -->
+    <div class="sidebar d-none d-md-flex">
+        <div class="sidebar-header">
+            <div class="d-flex align-items-center mb-3">
+                <button class="action-button text-white me-2" onclick="goBack()">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <h4 class="mb-0">New Group</h4>
+            </div>
+        </div>
+        
+        <div class="p-3">
+            <div class="text-center text-muted">
+                <i class="fas fa-users fa-3x mb-3"></i>
+                <p>Create a group to chat with multiple people</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="create-group-container">
+            <div class="create-group-header">
+                <h3 class="mb-4">Create New Group</h3>
+            </div>
+
+            <form id="createGroupForm" class="create-group-form">
+                <!-- Group Info Section -->
+                <div class="group-info-section mb-4">
+                    <div class="group-avatar-section text-center mb-4">
+                        <div class="group-avatar-placeholder" onclick="selectGroupImage()">
+                            <i class="fas fa-camera fa-2x"></i>
+                            <p class="mt-2 mb-0">Add Group Photo</p>
+                        </div>
+                        <input type="file" id="groupImageInput" accept="image/*" style="display: none;">
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="groupName" class="form-label">Group Name *</label>
+                        <input type="text" id="groupName" class="form-control" 
+                               placeholder="Enter group name" maxlength="100" required>
+                        <div class="invalid-feedback">Group name is required</div>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="groupDescription" class="form-label">Description (Optional)</label>
+                        <textarea id="groupDescription" class="form-control" rows="3" 
+                                  placeholder="What's this group about?" maxlength="512"></textarea>
+                        <small class="form-text text-muted">0/512 characters</small>
+                    </div>
+                </div>
+
+                <!-- Participants Section -->
+                <div class="participants-section">
+                    <h5 class="mb-3">Add Participants</h5>
+                    
+                    <!-- Search Users -->
+                    <div class="search-participants mb-3">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input type="text" id="participantSearch" class="form-control" 
+                                   placeholder="Search contacts or enter username">
+                        </div>
+                    </div>
+
+                    <!-- Selected Participants -->
+                    <div class="selected-participants mb-3" id="selectedParticipants" style="display: none;">
+                        <h6 class="text-muted mb-2">Selected (<span id="selectedCount">0</span>)</h6>
+                        <div class="selected-list" id="selectedList">
+                            <!-- Selected participants will be added here -->
+                        </div>
+                    </div>
+
+                    <!-- Available Users -->
+                    <div class="available-participants">
+                        <h6 class="text-muted mb-2">Contacts</h6>
+                        <div class="participants-list" id="participantsList">
+                            <!-- Loading indicator -->
+                            <div class="text-center py-4" id="loadingParticipants">
+                                <div class="spinner-border spinner-border-sm" role="status"></div>
+                                <p class="mt-2 mb-0 text-muted">Loading contacts...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="create-group-actions mt-4">
+                    <button type="button" class="btn btn-secondary me-2" onclick="goBack()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="createGroupBtn" disabled>
+                        <i class="fas fa-users me-2"></i>Create Group
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center p-4">
+                <div class="success-icon mb-3">
+                    <i class="fas fa-check-circle text-success fa-3x"></i>
+                </div>
+                <h5>Group Created Successfully!</h5>
+                <p class="text-muted mb-4">Your group has been created and you can start chatting now.</p>
+                <button type="button" class="btn btn-primary" onclick="redirectToGroup()">
+                    Go to Group
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.create-group-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.create-group-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.group-avatar-placeholder {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 2px dashed #ddd;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #666;
+}
+
+.group-avatar-placeholder:hover {
+    border-color: var(--whatsapp-green);
+    color: var(--whatsapp-green);
+    background: rgba(37, 211, 102, 0.1);
+}
+
+.group-avatar-preview {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    cursor: pointer;
+    border: 3px solid var(--whatsapp-green);
+}
+
+.participants-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+
+.participant-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.participant-item:last-child {
+    border-bottom: none;
+}
+
+.participant-item:hover {
+    background-color: #f8f9fa;
+}
+
+.participant-item.selected {
+    background-color: var(--whatsapp-light-green);
+}
+
+.participant-avatar {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    margin-right: 12px;
+    background: var(--whatsapp-dark-green);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 500;
+}
+
+.participant-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.participant-name {
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+.participant-username {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.participant-checkbox {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 2px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.participant-checkbox.checked {
+    background: var(--whatsapp-green);
+    border-color: var(--whatsapp-green);
+    color: white;
+}
+
+.selected-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+.selected-participant {
+    display: flex;
+    align-items: center;
+    background: var(--whatsapp-green);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+}
+
+.selected-participant .remove-participant {
+    margin-left: 8px;
+    cursor: pointer;
+    opacity: 0.8;
+}
+
+.selected-participant .remove-participant:hover {
+    opacity: 1;
+}
+
+.create-group-actions {
+    text-align: center;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.success-icon {
+    animation: scaleIn 0.5s ease-out;
+}
+
+@keyframes scaleIn {
+    0% { transform: scale(0); }
+    100% { transform: scale(1); }
+}
+
+/* Dark theme */
+.theme-dark .group-avatar-placeholder {
+    border-color: #555;
+    color: #aaa;
+}
+
+.theme-dark .group-avatar-placeholder:hover {
+    border-color: var(--whatsapp-green);
+    color: var(--whatsapp-green);
+}
+
+.theme-dark .participants-list {
+    border-color: #555;
+    background: var(--dark-sidebar);
+}
+
+.theme-dark .participant-item {
+    border-color: #444;
+}
+
+.theme-dark .participant-item:hover {
+    background: #3a3a3a;
+}
+
+.theme-dark .participant-username {
+    color: #aaa;
+}
+
+.theme-dark .selected-list {
+    background: #2a2a2a;
+}
+
+.theme-dark .create-group-actions {
+    border-color: #444;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .create-group-container {
+        padding: 15px;
+    }
+    
+    .group-avatar-placeholder {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .group-avatar-preview {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .participants-list {
+        max-height: 250px;
+    }
+    
+    .create-group-actions {
+        position: sticky;
+        bottom: 0;
+        background: white;
+        padding: 15px 0;
+        margin: 20px -15px -15px;
+        border-top: 1px solid #eee;
+    }
+    
+    .theme-dark .create-group-actions {
+        background: var(--dark-sidebar);
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedParticipants = new Set();
+let allUsers = [];
+let groupImageFile = null;
+let createdGroupId = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadContacts();
+    setupEventListeners();
+});
+
+function setupEventListeners() {
+    // Group name validation
+    const groupNameInput = document.getElementById('groupName');
+    groupNameInput.addEventListener('input', validateForm);
+    
+    // Description character count
+    const descriptionInput = document.getElementById('groupDescription');
+    descriptionInput.addEventListener('input', function() {
+        const charCount = this.value.length;
+        const feedback = this.nextElementSibling;
+        feedback.textContent = `${charCount}/512 characters`;
+    });
+    
+    // Participant search
+    const searchInput = document.getElementById('participantSearch');
+    searchInput.addEventListener('input', function() {
+        filterParticipants(this.value);
+    });
+    
+    // Form submission
+    const form = document.getElementById('createGroupForm');
+    form.addEventListener('submit', handleFormSubmit);
+    
+    // Group image selection
+    const imageInput = document.getElementById('groupImageInput');
+    imageInput.addEventListener('change', handleImageSelection);
+}
+
+function loadContacts() {
+    // Simulate loading contacts (replace with actual API call)
+    setTimeout(() => {
+        // Mock data - replace with actual fetch
+        allUsers = [
+            {
+                id: 'user1',
+                username: 'john_doe',
+                first_name: 'John',
+                last_name: 'Doe',
+                profile_picture: null,
+                is_online: true
+            },
+            {
+                id: 'user2', 
+                username: 'jane_smith',
+                first_name: 'Jane',
+                last_name: 'Smith',
+                profile_picture: null,
+                is_online: false
+            }
+        ];
+        
+        displayParticipants(allUsers);
+    }, 1000);
+}
+
+function displayParticipants(users) {
+    const loadingEl = document.getElementById('loadingParticipants');
+    const listEl = document.getElementById('participantsList');
+    
+    loadingEl.style.display = 'none';
+    
+    if (users.length === 0) {
+        listEl.innerHTML = `
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-users fa-2x mb-2"></i>
+                <p>No contacts found</p>
+            </div>
+        `;
+        return;
+    }
+    
+    listEl.innerHTML = users.map(user => `
+        <div class="participant-item" onclick="toggleParticipant('${user.id}')" data-user-id="${user.id}">
+            <div class="participant-avatar">
+                ${user.profile_picture ? 
+                    `<img src="${user.profile_picture}" alt="${user.username}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` :
+                    `${(user.first_name?.charAt(0) || user.username?.charAt(0) || '?').toUpperCase()}`
+                }
+            </div>
+            <div class="participant-info">
+                <div class="participant-name">
+                    ${user.first_name} ${user.last_name || ''}
+                </div>
+                <div class="participant-username">@${user.username}</div>
+            </div>
+            <div class="participant-checkbox" id="checkbox-${user.id}">
+                <i class="fas fa-check" style="display: none;"></i>
+            </div>
+        </div>
+    `).join('');
+}
+
+function filterParticipants(query) {
+    if (!query.trim()) {
+        displayParticipants(allUsers);
+        return;
+    }
+    
+    const filtered = allUsers.filter(user => {
+        const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
+        const username = user.username.toLowerCase();
+        const searchTerm = query.toLowerCase();
+        
+        return fullName.includes(searchTerm) || username.includes(searchTerm);
+    });
+    
+    displayParticipants(filtered);
+}
+
+function toggleParticipant(userId) {
+    const user = allUsers.find(u => u.id === userId);
+    if (!user) return;
+    
+    const participantItem = document.querySelector(`[data-user-id="${userId}"]`);
+    const checkbox = document.getElementById(`checkbox-${userId}`);
+    const checkIcon = checkbox.querySelector('i');
+    
+    if (selectedParticipants.has(userId)) {
+        // Remove participant
+        selectedParticipants.delete(userId);
+        participantItem.classList.remove('selected');
+        checkbox.classList.remove('checked');
+        checkIcon.style.display = 'none';
+    } else {
+        // Add participant
+        selectedParticipants.add(userId);
+        participantItem.classList.add('selected');
+        checkbox.classList.add('checked');
+        checkIcon.style.display = 'block';
+    }
+    
+    updateSelectedParticipants();
+    validateForm();
+}
+
+function updateSelectedParticipants() {
+    const selectedContainer = document.getElementById('selectedParticipants');
+    const selectedList = document.getElementById('selectedList');
+    const selectedCount = document.getElementById('selectedCount');
+    
+    selectedCount.textContent = selectedParticipants.size;
+    
+    if (selectedParticipants.size === 0) {
+        selectedContainer.style.display = 'none';
+        return;
+    }
+    
+    selectedContainer.style.display = 'block';
+    
+    const selectedUsersHtml = Array.from(selectedParticipants).map(userId => {
+        const user = allUsers.find(u => u.id === userId);
+        return `
+            <div class="selected-participant">
+                ${user.first_name} ${user.last_name || ''}
+                <span class="remove-participant" onclick="toggleParticipant('${userId}')">
+                    <i class="fas fa-times"></i>
+                </span>
+            </div>
+        `;
+    }).join('');
+    
+    selectedList.innerHTML = selectedUsersHtml;
+}
+
+function validateForm() {
+    const groupName = document.getElementById('groupName').value.trim();
+    const createBtn = document.getElementById('createGroupBtn');
+    
+    const isValid = groupName.length > 0 && selectedParticipants.size > 0;
+    createBtn.disabled = !isValid;
+}
+
+function selectGroupImage() {
+    document.getElementById('groupImageInput').click();
+}
+
+function handleImageSelection(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        alert('Image size should be less than 5MB');
+        return;
+    }
+    
+    groupImageFile = file;
+    
+    // Preview image
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const placeholder = document.querySelector('.group-avatar-placeholder');
+        placeholder.innerHTML = `<img src="${e.target.result}" class="group-avatar-preview" onclick="selectGroupImage()">`;
+    };
+    reader.readAsDataURL(file);
+}
+
+async function handleFormSubmit(event) {
+    event.preventDefault();
+    
+    const groupName = document.getElementById('groupName').value.trim();
+    const description = document.getElementById('groupDescription').value.trim();
+    const createBtn = document.getElementById('createGroupBtn');
+    
+    if (!groupName || selectedParticipants.size === 0) {
+        alert('Please enter a group name and select at least one participant');
+        return;
+    }
+    
+    // Disable button and show loading
+    createBtn.disabled = true;
+    createBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creating...';
+    
+    try {
+        const response = await fetch('/api/create-group/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                name: groupName,
+                description: description,
+                participants: Array.from(selectedParticipants)
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            createdGroupId = data.group_id;
+            showSuccessModal();
+        } else {
+            throw new Error(data.error || 'Failed to create group');
+        }
+    } catch (error) {
+        alert('Error creating group: ' + error.message);
+        createBtn.disabled = false;
+        createBtn.innerHTML = '<i class="fas fa-users me-2"></i>Create Group';
+    }
+}
+
+function showSuccessModal() {
+    const modal = new bootstrap.Modal(document.getElementById('successModal'));
+    modal.show();
+}
+
+function redirectToGroup() {
+    if (createdGroupId) {
+        window.location.href = `/chat/${createdGroupId}/`;
+    } else {
+        window.location.href = '/';
+    }
+}
+
+function goBack() {
+    window.history.back();
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

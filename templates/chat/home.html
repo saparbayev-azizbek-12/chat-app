@@ -1,0 +1,800 @@
+{% extends 'chat/base.html' %}
+
+{% block title %}ChatApp - Home{% endblock %}
+
+{% block content %}
+<div class="chat-container">
+    <!-- Mobile Header -->
+    <div class="mobile-header">
+        <button class="action-button me-3" onclick="toggleMobileNavbar()">
+            <i class="fas fa-bars"></i>
+        </button>
+        <h5 class="mb-0 flex-grow-1">ChatApp</h5>
+    </div>
+
+    <!-- Mobile Dropdown Navbar -->
+    <div class="mobile-navbar" id="mobileNavbar">
+        <div class="mobile-navbar-header p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Menu</h5>
+                <button class="btn btn-link text-white p-0" onclick="closeMobileNavbar()">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="mobile-navbar-content">
+            <div class="list-group list-group-flush">
+                <a href="{% url 'chat:search_users' %}" class="list-group-item list-group-item-action bg-transparent text-white border-0">
+                    <i class="fas fa-search me-3"></i>New Chat
+                </a>
+
+                <a href="{% url 'chat:profile' %}" class="list-group-item list-group-item-action bg-transparent text-white border-0">
+                    <i class="fas fa-user me-3"></i>Profile
+                </a>
+                <div class="dropdown-divider bg-light opacity-25"></div>
+                <button class="list-group-item list-group-item-action bg-transparent text-white border-0" onclick="toggleTheme()">
+                    <i class="fas fa-moon me-3"></i>Dark Mode
+                </button>
+                <a href="{% url 'chat:logout' %}" class="list-group-item list-group-item-action bg-transparent text-white border-0">
+                    <i class="fas fa-sign-out-alt me-3"></i>Logout
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <!-- Sidebar Header -->
+        <div class="sidebar-header">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">Chats</h4>
+                <div class="d-flex gap-2">
+                    <div class="dropdown">
+                        <button class="action-button text-white" data-bs-toggle="dropdown" title="Menu">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'chat:profile' %}">
+                                <i class="fas fa-user me-2"></i>Profile
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'chat:search_users' %}">
+                                <i class="fas fa-plus me-2"></i>New Chat
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="toggleTheme()">
+                                <i class="fas fa-moon me-2"></i>Toggle Dark Mode
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'chat:logout' %}">
+                                <i class="fas fa-sign-out-alt me-2"></i>Logout
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <!-- Quick Actions -->
+            <div class="d-flex gap-2 mb-3">
+                <a href="{% url 'chat:search_users' %}" class="btn btn-outline-light btn-sm flex-fill">
+                    <i class="fas fa-plus me-1"></i>New Chat
+                </a>
+                <button class="btn btn-outline-light btn-sm" onclick="refreshChats()" title="Refresh">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat List -->
+        <div class="chat-list" id="chatList">
+            {% for chat_room in chat_rooms %}
+                {% if chat_room.chat_type == 'private' %}
+                    {% for participant in chat_room.participants.all %}
+                        {% if participant != user %}
+                            {% with other_user=participant last_message=chat_room.messages.last %}
+                        <div class="chat-item" onclick="openChat('{{ chat_room.id }}')" data-user-id="{{ other_user.id }}">
+                            <div class="avatar-container">
+                                {% if other_user.profile_picture %}
+                                    <img src="{{ other_user.profile_picture.url }}" alt="{{ other_user.username }}" class="avatar">
+                                {% else %}
+                                    <div class="avatar">
+                                        {{ other_user.first_name.0|default:other_user.username.0|upper }}
+                                    </div>
+                                {% endif %}
+                                {% if other_user.is_online %}
+                                    <div class="online-indicator"></div>
+                                {% endif %}
+                            </div>
+                            <div class="chat-info">
+                                <div class="chat-name">
+                                    {{ other_user.first_name }} {{ other_user.last_name|default:other_user.username }}
+                                </div>
+                                <div class="chat-preview">
+                                    {% if last_message %}
+                                        {% if last_message.message_type == 'text' %}
+                                            {% if last_message.sender == user %}
+                                                <i class="fas fa-check me-1"></i>
+                                            {% endif %}
+                                            {{ last_message.content|truncatechars:40 }}
+                                        {% elif last_message.message_type == 'image' %}
+                                            {% if last_message.sender == user %}
+                                                <i class="fas fa-check me-1"></i>
+                                            {% endif %}
+                                            <i class="fas fa-image me-1"></i>Image
+                                        {% elif last_message.message_type == 'video' %}
+                                            {% if last_message.sender == user %}
+                                                <i class="fas fa-check me-1"></i>
+                                            {% endif %}
+                                            <i class="fas fa-video me-1"></i>Video
+                                        {% elif last_message.message_type == 'voice' %}
+                                            {% if last_message.sender == user %}
+                                                <i class="fas fa-check me-1"></i>
+                                            {% endif %}
+                                            <i class="fas fa-microphone me-1"></i>Voice message
+                                        {% elif last_message.message_type == 'audio' %}
+                                            {% if last_message.sender == user %}
+                                                <i class="fas fa-check me-1"></i>
+                                            {% endif %}
+                                            <i class="fas fa-music me-1"></i>Audio
+                                        {% elif last_message.message_type == 'file' %}
+                                            {% if last_message.sender == user %}
+                                                <i class="fas fa-check me-1"></i>
+                                            {% endif %}
+                                            <i class="fas fa-file me-1"></i>Document
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">Start a conversation...</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="chat-meta">
+                                {% if last_message %}
+                                    <div class="chat-time">
+                                        {% now "Y-m-d" as today %}
+                                        {% if last_message.created_at|date:"Y-m-d" == today %}
+                                            {{ last_message.created_at|date:"H:i" }}
+                                        {% elif last_message.created_at|date:"Y" == today|slice:":4" %}
+                                            {{ last_message.created_at|date:"M d" }}
+                                        {% else %}
+                                            {{ last_message.created_at|date:"m/d/y" }}
+                                        {% endif %}
+                                    </div>
+                                    {% comment %}
+                                    <!-- Unread count placeholder -->
+                                    <div class="unread-count d-none">2</div>
+                                    {% endcomment %}
+                                {% endif %}
+                            </div>
+                        </div>
+                            {% endwith %}
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    {% with last_message=chat_room.messages.last %}
+                    <div class="chat-item" onclick="openChat('{{ chat_room.id }}')">
+                        <div class="avatar">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="chat-info">
+                            <div class="chat-name">{{ chat_room.name|default:"Group Chat" }}</div>
+                            <div class="chat-preview">
+                                {% if last_message %}
+                                    {% if last_message.message_type == 'text' %}
+                                        {{ last_message.sender.first_name|default:last_message.sender.username }}: {{ last_message.content|truncatechars:30 }}
+                                    {% else %}
+                                        {{ last_message.sender.first_name|default:last_message.sender.username }}: 
+                                        <i class="fas fa-{{ last_message.message_type }} me-1"></i>
+                                        {{ last_message.get_message_type_display }}
+                                    {% endif %}
+                                {% else %}
+                                    {{ chat_room.participants.count }} members
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="chat-meta">
+                            {% if last_message %}
+                                <div class="chat-time">
+                                    {% now "Y-m-d" as today %}
+                                    {% if last_message.created_at|date:"Y-m-d" == today %}
+                                        {{ last_message.created_at|date:"H:i" }}
+                                    {% else %}
+                                        {{ last_message.created_at|date:"M d" }}
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endwith %}
+                {% endif %}
+            {% empty %}
+                <div class="text-center p-4">
+                    <div class="py-5">
+                        <i class="fas fa-comments fa-4x text-muted mb-3 opacity-50"></i>
+                        <h5 class="text-muted mb-2">No chats yet</h5>
+                        <p class="text-muted small mb-3">Start a conversation with someone</p>
+                        <a href="{% url 'chat:search_users' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus me-1"></i>Start a chat
+                        </a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Contacts Section -->
+        {% if contacts %}
+            <div class="border-top pt-3 mt-auto">
+                <h6 class="px-3 text-muted mb-2 d-flex align-items-center">
+                    <i class="fas fa-address-book me-2"></i>Contacts
+                </h6>
+                <div class="contacts-list" style="max-height: 200px; overflow-y: auto;">
+                    {% for contact in contacts|slice:":5" %}
+                        <div class="chat-item" onclick="startChat('{{ contact.contact.id }}')" data-user-id="{{ contact.contact.id }}">
+                            <div class="avatar-container">
+                                {% if contact.contact.profile_picture %}
+                                    <img src="{{ contact.contact.profile_picture.url }}" alt="{{ contact.contact.username }}" class="avatar">
+                                {% else %}
+                                    <div class="avatar" style="width: 40px; height: 40px; font-size: 14px;">
+                                        {{ contact.contact.first_name.0|default:contact.contact.username.0|upper }}
+                                    </div>
+                                {% endif %}
+                                {% if contact.contact.is_online %}
+                                    <div class="online-indicator"></div>
+                                {% endif %}
+                            </div>
+                            <div class="chat-info">
+                                <div class="chat-name">
+                                    {{ contact.nickname|default:contact.contact.first_name }} {{ contact.contact.last_name }}
+                                </div>
+                                <div class="chat-preview">
+                                    {% if contact.contact.is_online %}
+                                        <span class="text-success"><i class="fas fa-circle me-1" style="font-size: 8px;"></i>Online</span>
+                                    {% else %}
+                                        <span class="text-muted">Last seen {{ contact.contact.last_seen|timesince }} ago</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                    {% if contacts.count > 5 %}
+                        <div class="text-center p-2">
+                            <small class="text-muted">+{{ contacts.count|add:"-5" }} more contacts</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="main-content">
+        <!-- Mobile Chat List (visible on mobile/tablet) -->
+        <div class="mobile-chat-list">
+            {% if chat_rooms %}
+                <div class="chat-list-mobile">
+                    {% for chat_room in chat_rooms %}
+                        {% if chat_room.chat_type == 'private' %}
+                            {% for participant in chat_room.participants.all %}
+                                {% if participant != user %}
+                                    {% with other_user=participant last_message=chat_room.messages.last %}
+                                    <div class="chat-item-mobile" onclick="openChat('{{ chat_room.id }}')" data-user-id="{{ other_user.id }}">
+                                        <div class="avatar-container">
+                                            {% if other_user.profile_picture %}
+                                                <img src="{{ other_user.profile_picture.url }}" alt="{{ other_user.username }}" class="avatar">
+                                            {% else %}
+                                                <div class="avatar">
+                                                    {{ other_user.first_name.0|default:other_user.username.0|upper }}
+                                                </div>
+                                            {% endif %}
+                                            {% if other_user.is_online %}
+                                                <div class="online-indicator"></div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="chat-info">
+                                            <div class="chat-name">
+                                                {{ other_user.first_name }} {{ other_user.last_name|default:other_user.username }}
+                                            </div>
+                                            <div class="chat-preview">
+                                                {% if last_message %}
+                                                    {% if last_message.message_type == 'text' %}
+                                                        {% if last_message.sender == user %}
+                                                            <i class="fas fa-check me-1"></i>
+                                                        {% endif %}
+                                                        {{ last_message.content|truncatechars:35 }}
+                                                    {% elif last_message.message_type == 'image' %}
+                                                        {% if last_message.sender == user %}
+                                                            <i class="fas fa-check me-1"></i>
+                                                        {% endif %}
+                                                        <i class="fas fa-image me-1"></i>Image
+                                                    {% elif last_message.message_type == 'voice' %}
+                                                        {% if last_message.sender == user %}
+                                                            <i class="fas fa-check me-1"></i>
+                                                        {% endif %}
+                                                        <i class="fas fa-microphone me-1"></i>Voice message
+                                                    {% else %}
+                                                        {% if last_message.sender == user %}
+                                                            <i class="fas fa-check me-1"></i>
+                                                        {% endif %}
+                                                        <i class="fas fa-{{ last_message.message_type }} me-1"></i>{{ last_message.get_message_type_display }}
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-muted">Tap to start chatting</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="chat-meta">
+                                            {% if last_message %}
+                                                <div class="chat-time">
+                                                    {% now "Y-m-d" as today %}
+                                                    {% if last_message.created_at|date:"Y-m-d" == today %}
+                                                        {{ last_message.created_at|date:"H:i" }}
+                                                    {% elif last_message.created_at|date:"Y" == today|slice:":4" %}
+                                                        {{ last_message.created_at|date:"M d" }}
+                                                    {% else %}
+                                                        {{ last_message.created_at|date:"m/d/y" }}
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endwith %}
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            {% with last_message=chat_room.messages.last %}
+                            <div class="chat-item-mobile" onclick="openChat('{{ chat_room.id }}')">
+                                <div class="avatar">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="chat-info">
+                                    <div class="chat-name">{{ chat_room.name|default:"Group Chat" }}</div>
+                                    <div class="chat-preview">
+                                        {% if last_message %}
+                                            {{ last_message.sender.first_name|default:last_message.sender.username }}: 
+                                            {% if last_message.message_type == 'text' %}
+                                                {{ last_message.content|truncatechars:25 }}
+                                            {% else %}
+                                                <i class="fas fa-{{ last_message.message_type }} me-1"></i>{{ last_message.get_message_type_display }}
+                                            {% endif %}
+                                        {% else %}
+                                            {{ chat_room.participants.count }} members
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="chat-meta">
+                                    {% if last_message %}
+                                        <div class="chat-time">
+                                            {% now "Y-m-d" as today %}
+                                            {% if last_message.created_at|date:"Y-m-d" == today %}
+                                                {{ last_message.created_at|date:"H:i" }}
+                                            {% else %}
+                                                {{ last_message.created_at|date:"M d" }}
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endwith %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                
+                <!-- Recent Contacts Section (Mobile) -->
+                {% if contacts %}
+                    <div class="recent-contacts-mobile">
+                        <div class="section-header">
+                            <h6 class="text-muted mb-0">
+                                <i class="fas fa-address-book me-2"></i>Recent Contacts
+                            </h6>
+                        </div>
+                        <div class="contacts-horizontal">
+                            {% for contact in contacts|slice:":5" %}
+                                <div class="contact-item-mobile" onclick="startChat('{{ contact.contact.id }}')" data-user-id="{{ contact.contact.id }}">
+                                    <div class="avatar-container">
+                                        {% if contact.contact.profile_picture %}
+                                            <img src="{{ contact.contact.profile_picture.url }}" alt="{{ contact.contact.username }}" class="avatar">
+                                        {% else %}
+                                            <div class="avatar">
+                                                {{ contact.contact.first_name.0|default:contact.contact.username.0|upper }}
+                                            </div>
+                                        {% endif %}
+                                        {% if contact.contact.is_online %}
+                                            <div class="online-indicator"></div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="contact-name">
+                                        {{ contact.nickname|default:contact.contact.first_name|truncatechars:8 }}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            {% else %}
+                <!-- Empty State (Mobile) -->
+                <div class="empty-state-mobile">
+                    <div class="text-center py-5">
+                        <i class="fas fa-comments fa-4x text-muted mb-3 opacity-50"></i>
+                        <h5 class="text-muted mb-2">No chats yet</h5>
+                        <p class="text-muted small mb-3">Start a conversation with someone</p>
+                        <a href="{% url 'chat:search_users' %}" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>Start a chat
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Desktop Welcome (hidden on mobile/tablet) -->
+        <div class="desktop-welcome">
+            <div class="d-flex flex-column h-100 justify-content-center align-items-center text-center p-4">
+                <div class="welcome-content">
+                    <div class="welcome-icon mb-4">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <h2 class="welcome-title mb-3">Welcome to ChatApp</h2>
+                    <p class="welcome-subtitle mb-4">Send and receive messages without keeping your phone online.</p>
+                    <div class="welcome-features mb-4">
+                        <div class="feature-item">
+                            <i class="fas fa-lock"></i>
+                            <span>End-to-end encrypted</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-bolt"></i>
+                            <span>Fast and reliable</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-mobile-alt"></i>
+                            <span>Works on all devices</span>
+                        </div>
+                    </div>
+                    <a href="{% url 'chat:search_users' %}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-plus me-2"></i>Start New Chat
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Action Button -->
+    <a href="{% url 'chat:search_users' %}" class="fab" title="Add new contact">
+        <i class="fas fa-plus"></i>
+    </a>
+</div>
+
+<!-- Overlay for mobile -->
+<div class="sidebar-overlay" onclick="closeSidebar()"></div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.welcome-content {
+    max-width: 500px;
+}
+
+.welcome-icon {
+    font-size: 4rem;
+    color: var(--whatsapp-green);
+    opacity: 0.8;
+}
+
+.welcome-title {
+    color: #333;
+    font-weight: 300;
+}
+
+.theme-dark .welcome-title {
+    color: var(--dark-text);
+}
+
+.welcome-subtitle {
+    color: #666;
+    font-size: 1.1rem;
+}
+
+.theme-dark .welcome-subtitle {
+    color: #aaa;
+}
+
+.welcome-features {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.theme-dark .feature-item {
+    color: #aaa;
+}
+
+.feature-item i {
+    color: var(--whatsapp-green);
+}
+
+.contacts-list .chat-item {
+    padding: 10px 20px;
+}
+
+.contacts-list .avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 14px;
+}
+
+@media (max-width: 768px) {
+    .welcome-features {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: center;
+    }
+    
+    .welcome-icon {
+        font-size: 3rem;
+    }
+    
+    .welcome-title {
+        font-size: 1.5rem;
+    }
+    
+    .welcome-subtitle {
+        font-size: 1rem;
+    }
+}
+
+/* Enhanced chat item hover effects */
+.chat-item:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    transform: translateX(2px);
+}
+
+.theme-dark .chat-item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Message type icons */
+.chat-preview i {
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+/* Floating Action Button */
+.fab {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: white;
+    font-size: 24px;
+    box-shadow: 0 4px 12px rgba(18, 140, 126, 0.4);
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+.fab:hover {
+    background: var(--whatsapp-dark-green);
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(18, 140, 126, 0.5);
+    color: white;
+    text-decoration: none;
+}
+
+.fab:active {
+    transform: scale(0.95);
+}
+
+/* Hide FAB only on large desktop screens where sidebar is always visible */
+@media (min-width: 1200px) {
+    .fab {
+        display: none;
+    }
+}
+
+/* Adjust FAB position for mobile and tablet */
+@media (max-width: 768px) {
+    .fab {
+        bottom: calc(20px + env(safe-area-inset-bottom));
+        right: 20px;
+    }
+}
+
+/* Tablet specific adjustments */
+@media (min-width: 769px) and (max-width: 1199px) {
+    .fab {
+        bottom: 25px;
+        right: 25px;
+        width: 60px;
+        height: 60px;
+        font-size: 26px;
+    }
+}
+
+
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let lastActivityTime = Date.now();
+    
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+        updateOnlineStatus();
+        setupActivityTracking();
+        
+        // Update online status every 30 seconds
+        setInterval(updateOnlineStatus, 30000);
+        
+        // Send heartbeat every 60 seconds
+        setInterval(sendHeartbeat, 60000);
+    });
+    
+    // Mobile navbar functions
+    function toggleMobileNavbar() {
+        const navbar = document.getElementById('mobileNavbar');
+        navbar.classList.toggle('show');
+        
+        // Add body scroll lock when navbar is open
+        if (navbar.classList.contains('show')) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+    }
+    
+    function closeMobileNavbar() {
+        const navbar = document.getElementById('mobileNavbar');
+        navbar.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+    
+    // Close navbar when clicking outside
+    document.addEventListener('click', function(e) {
+        const navbar = document.getElementById('mobileNavbar');
+        const menuButton = document.querySelector('[onclick="toggleMobileNavbar()"]');
+        
+        if (navbar && navbar.classList.contains('show')) {
+            if (!navbar.contains(e.target) && !menuButton.contains(e.target)) {
+                closeMobileNavbar();
+            }
+        }
+    });
+
+    // Navigation functions
+    function openChat(roomId) {
+        window.location.href = `/chat/${roomId}/`;
+    }
+
+    function startChat(userId) {
+        window.location.href = `/start-chat/${userId}/`;
+    }
+
+    function refreshChats() {
+        location.reload();
+    }
+    
+
+
+
+
+    // Theme toggle
+    function toggleTheme() {
+        const body = document.body;
+        const currentTheme = body.classList.contains('theme-dark') ? 'dark' : 'light';
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        body.classList.remove(`theme-${currentTheme}`);
+        body.classList.add(`theme-${newTheme}`);
+        
+        // Save theme preference
+        fetch('/api/update-theme/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ theme: newTheme })
+        }).catch(console.error);
+    }
+
+    // Online status management
+    function updateOnlineStatus() {
+        fetch('/api/online-status/')
+            .then(response => response.json())
+            .then(data => {
+                data.online_users.forEach(userId => {
+                    const indicators = document.querySelectorAll(`[data-user-id="${userId}"] .online-indicator`);
+                    indicators.forEach(indicator => {
+                        indicator.style.display = 'block';
+                    });
+                });
+            })
+            .catch(error => console.log('Error updating online status:', error));
+    }
+    
+    function setupActivityTracking() {
+        // Track user activity
+        const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+        
+        events.forEach(event => {
+            document.addEventListener(event, () => {
+                lastActivityTime = Date.now();
+            }, { passive: true });
+        });
+        
+        // Check for inactivity
+        setInterval(() => {
+            const now = Date.now();
+            const timeSinceActivity = now - lastActivityTime;
+            
+            // If inactive for more than 5 minutes, user is considered away
+            if (timeSinceActivity > 5 * 60 * 1000) {
+                // Update status to away
+                sendHeartbeat(false);
+            }
+        }, 30000);
+    }
+    
+    function sendHeartbeat(isActive = true) {
+        const timeSinceActivity = Date.now() - lastActivityTime;
+        const isUserActive = timeSinceActivity < 30000; // Active if activity within 30 seconds
+        
+        fetch('/api/heartbeat/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ 
+                is_active: isUserActive && isActive 
+            })
+        }).catch(console.error);
+    }
+
+    // Utility functions
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Handle page visibility changes
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            sendHeartbeat(false);
+        } else {
+            lastActivityTime = Date.now();
+            sendHeartbeat(true);
+            updateOnlineStatus();
+        }
+    });
+    
+    // Handle page unload
+    window.addEventListener('beforeunload', function() {
+        sendHeartbeat(false);
+    });
+</script>
+{% endblock %}
