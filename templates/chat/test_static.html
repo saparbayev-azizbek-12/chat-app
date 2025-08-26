@@ -1,0 +1,54 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Static Files Test</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="{% static 'bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+    
+    <style>
+        .test-box {
+            background: red;
+            color: white;
+            padding: 20px;
+            margin: 20px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Static Files Test</h1>
+        
+        <div class="test-box">
+            <h3>If you see this box in red, CSS is working!</h3>
+            <p>This is a test to verify that static files are loading correctly.</p>
+        </div>
+        
+        <div class="alert alert-success">
+            <h4>Bootstrap Test</h4>
+            <p>If you see this alert styled with Bootstrap, Bootstrap CSS is working!</p>
+        </div>
+        
+        <div class="chat-container">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h4>Sidebar Test</h4>
+                </div>
+            </div>
+            <div class="main-content">
+                <h3>Main Content Test</h3>
+                <p>If you see proper styling on the sidebar and main content, your custom CSS is working!</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>

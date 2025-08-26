@@ -719,3 +719,7 @@ def get_messages_view(request, room_id):
         
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+def test_static_view(request):
+    """Test view to verify static files are loading correctly"""
+    return render(request, 'chat/test_static.html')

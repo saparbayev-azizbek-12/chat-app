@@ -32,4 +32,7 @@ urlpatterns = [
     path('api/create-group/', views.create_group_view, name='create_group'),
     path('api/send-message/<uuid:room_id>/', views.send_message_view, name='send_message'),
     path('api/get-messages/<uuid:room_id>/', views.get_messages_view, name='get_messages'),
+    
+    # Test URL
+    path('test-static/', views.test_static_view, name='test_static'),
 ]
