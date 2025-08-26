@@ -782,6 +782,16 @@ body {
         transform: translateY(0);
     }
     
+    /* When mobile navbar is expanded, adjust chat messages padding */
+    .mobile-navbar.show ~ .main-content .chat-messages {
+        padding-top: 120px; /* Extra space when navbar is expanded */
+    }
+    
+    /* Ensure messages always have proper spacing from header */
+    .mobile-header + .main-content .chat-messages {
+        padding-top: 90px; /* Consistent spacing from mobile header */
+    }
+    
     .mobile-navbar-header {
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         background: rgba(0, 0, 0, 0.1);
@@ -832,14 +842,14 @@ body {
         display: flex;
         flex-direction: column;
         margin-top: 0;
-        padding-top: 60px; /* Space for mobile header */
+        padding-top: 70px; /* Increased space for mobile header */
     }
     
     .chat-messages {
         padding: 10px 15px;
         flex: 1;
         overflow-y: auto;
-        padding-top: 70px; /* Space for fixed header */
+        padding-top: 80px; /* Increased space for fixed header */
         /* Smooth scrolling on iOS */
         -webkit-overflow-scrolling: touch;
     }
@@ -1327,6 +1337,9 @@ body {
     background: var(--primary-bg);
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
 }
 
 .auth-main-content {
@@ -1336,6 +1349,7 @@ body {
     justify-content: center;
     padding: 20px;
     overflow-y: auto;
+    min-height: 100vh;
 }
 
 .auth-card {
@@ -1346,6 +1360,10 @@ body {
     width: 100%;
     max-width: 500px;
     margin: auto;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
 }
 
 .auth-card-header {
@@ -1432,6 +1450,7 @@ body {
     .auth-container {
         min-height: 100vh;
         overflow-y: auto;
+        height: 100vh;
     }
     
     .auth-main-content {
@@ -1439,8 +1458,12 @@ body {
         padding-left: 15px;
         padding-right: 15px;
         padding-bottom: 30px;
+        overflow-y: auto;
         min-height: calc(100vh - 80px);
         align-items: flex-start;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
     }
     
     .auth-card {
@@ -1450,6 +1473,10 @@ body {
         box-shadow: none;
         background: white;
         width: 100%;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
     }
     
     .auth-icon i {
@@ -1876,7 +1903,7 @@ body {
     background: var(--dark-hover);
 }
 .align-items-center { align-items: center !important; }
-.text-center { text-center !important; }
+.text-center { text-align: center !important; }
 .mb-0 { margin-bottom: 0 !important; }
 .me-2 { margin-right: 8px !important; }
 .me-3 { margin-right: 12px !important; }

@@ -4,14 +4,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="{% static 'assets/img/whatsapp_192x192.png' %}">
     <title>{% block title %}ChatApp{% endblock %}</title>
-    
+
+    <!-- Manifest -->
+    <link rel="manifest" href="{% static 'assets/manifest.json' %}">
     <!-- Bootstrap CSS -->
     <link href="{% static 'bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
     <!-- Font Awesome -->
     <link href="{% static 'fontawesome/css/all.min.css' %}" rel="stylesheet">
     <!-- Custom CSS -->
-    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+    <link href="{% static 'assets/css/style.css' %}" rel="stylesheet">
 
     
     {% block extra_css %}{% endblock %}
@@ -22,8 +25,8 @@
     <!-- Bootstrap JS -->
     <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     <!-- Custom Chat JS -->
-    <script src="{% static 'js/chat.js' %}"></script>
-    
+    <script src="{% static 'assets/js/chat.js' %}"></script>
+      
     {% block extra_js %}{% endblock %}
 </body>
 </html>
