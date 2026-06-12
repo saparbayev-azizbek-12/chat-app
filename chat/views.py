@@ -1,5 +1,7 @@
 import json
 import mimetypes
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -9,6 +11,19 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.paginator import Paginator
 from chat.models import AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, Conversation, Message
+
+
+def broadcast_message_to_conversation(conversation_id, message):
+    channel_layer = get_channel_layer()
+    if not channel_layer:
+        return
+    async_to_sync(channel_layer.group_send)(
+        f'chat_{conversation_id}',
+        {
+            'type': 'chat_message',
+            'message': message,
+        }
+    )
 
 
 @login_required
@@ -173,11 +188,51 @@ def upload_attachment(request, conversation_id):
         attachment_size=uploaded_file.size,
     )
     conversation.save()  # update updated_at
+    message = msg.to_dict(requesting_user=request.user)
+
+    if request.POST.get('broadcast') == 'true':
+        broadcast_message_to_conversation(conversation.id, message)
 
     return JsonResponse({
         'success': True,
         'message_id': msg.id,
-        'message': msg.to_dict(requesting_user=request.user),
+        'message': message,
+    })
+
+
+@login_required
+@require_POST
+def send_message(request, conversation_id):
+    """Send a text message over HTTP when WebSockets are unavailable."""
+    conversation = get_object_or_404(
+        Conversation, id=conversation_id, participants=request.user
+    )
+
+    if request.content_type == 'application/json':
+        try:
+            data = json.loads(request.body or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        content = data.get('content', '').strip()
+    else:
+        content = request.POST.get('content', '').strip()
+
+    if not content:
+        return JsonResponse({'error': 'Message cannot be empty'}, status=400)
+
+    msg = Message.objects.create(
+        conversation=conversation,
+        sender=request.user,
+        message_type=Message.TYPE_TEXT,
+        content=content,
+    )
+    conversation.save()
+    message = msg.to_dict(requesting_user=request.user)
+    broadcast_message_to_conversation(conversation.id, message)
+
+    return JsonResponse({
+        'success': True,
+        'message': message,
     })
 
 
@@ -228,10 +283,11 @@ def edit_message(request, message_id):
 
 @login_required
 def load_more_messages(request, conversation_id):
-    """Pagination for older messages."""
+    """Pagination for older messages, plus HTTP polling for newer messages."""
     conversation = get_object_or_404(
         Conversation, id=conversation_id, participants=request.user
     )
+    after_id = request.GET.get('after_id')
     before_id = request.GET.get('before_id')
     qs = Message.objects.filter(
         conversation=conversation,
@@ -239,6 +295,26 @@ def load_more_messages(request, conversation_id):
     ).exclude(
         deleted_for=request.user
     ).select_related('sender', 'sender__profile')
+
+    if after_id:
+        try:
+            after_id = int(after_id)
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 'Invalid after_id'}, status=400)
+
+        messages = list(
+            qs.filter(id__gt=after_id)
+            .order_by('created_at')
+            .select_related('sender', 'sender__profile')[:100]
+        )
+        for msg in messages:
+            if msg.sender_id != request.user.id:
+                msg.mark_read_by(request.user)
+
+        return JsonResponse({
+            'messages': [m.to_dict(requesting_user=request.user) for m in messages],
+            'has_more': len(messages) == 100,
+        })
 
     if before_id:
         qs = qs.filter(id__lt=before_id)

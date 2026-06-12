@@ -14,13 +14,19 @@
     typingTimer: null,
     typingResetTimer: null,
     headerPresenceText: "",
+    latestMessageId: 0,
+    fallbackPolling: false,
+    pollTimer: null,
+    pollInFlight: false,
   };
 
   const cfg = {
     conversationId: app.dataset.conversationId || "",
     userId: app.dataset.userId || "",
     otherUserId: app.dataset.otherUserId || "",
+    sendUrl: app.dataset.sendUrl || "",
     uploadUrl: app.dataset.uploadUrl || "",
+    messagesUrl: app.dataset.messagesUrl || "",
     startUrl: app.dataset.startUrl || "",
     userSearchUrl: app.dataset.userSearchUrl || "/accounts/search/",
     indexUrl: app.dataset.indexUrl || "/",
@@ -62,6 +68,7 @@
     bindRecorder();
     bindMediaControls();
     buildEmojiPicker();
+    initializeLatestMessageId();
     connectSocket();
     scrollDown();
   }
@@ -195,8 +202,20 @@
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     state.ws = new WebSocket(`${protocol}://${window.location.host}/ws/chat/${cfg.conversationId}/`);
 
-    state.ws.addEventListener("open", () => updateComposerAvailability(true));
-    state.ws.addEventListener("close", () => updateComposerAvailability(false));
+    const fallbackTimer = window.setTimeout(() => {
+      if (!state.ws || state.ws.readyState !== WebSocket.OPEN) startFallbackPolling();
+    }, 1800);
+
+    state.ws.addEventListener("open", () => {
+      window.clearTimeout(fallbackTimer);
+      stopFallbackPolling();
+      updateComposerAvailability(true);
+    });
+    state.ws.addEventListener("close", () => {
+      window.clearTimeout(fallbackTimer);
+      startFallbackPolling();
+    });
+    state.ws.addEventListener("error", () => startFallbackPolling());
     state.ws.addEventListener("message", (event) => {
       const data = JSON.parse(event.data);
       if (data.type === "chat_message" && data.message) {
@@ -378,6 +397,10 @@
       return;
     }
     if (!content) return;
+    if (!isSocketOpen()) {
+      await sendTextHttp(content);
+      return;
+    }
     sendWs({ type: "chat_message", content });
     els.msgInput.value = "";
     resizeInput();
@@ -391,6 +414,7 @@
     formData.append("file", file, file.name);
     formData.append("caption", caption || "");
     if (isVoice) formData.append("is_voice", "true");
+    if (!isSocketOpen()) formData.append("broadcast", "true");
     setComposerBusy(true);
     try {
       const response = await fetch(cfg.uploadUrl, {
@@ -400,7 +424,7 @@
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Upload failed");
-      const sent = sendWs({ type: "chat_message", message_id: data.message_id });
+      const sent = sendWs({ type: "chat_message", message_id: data.message_id }, { quiet: true });
       if (!sent && data.message) {
         appendMessage(data.message);
         scrollDown();
@@ -491,12 +515,17 @@
 
   function appendMessage(message) {
     if (!els.msgContainer || !els.scrollAnchor) return;
+    if (document.querySelector(`[data-msg-id="${cssEscape(String(message.id))}"]`)) {
+      updateLatestMessageId(message.id);
+      return;
+    }
     const row = document.createElement("div");
     const isMine = String(message.sender_id) === String(cfg.userId);
     row.className = `message-row ${isMine ? "mine" : "theirs"}`;
     row.dataset.msgId = message.id;
     row.innerHTML = messageMarkup(message, isMine);
     els.msgContainer.insertBefore(row, els.scrollAnchor);
+    updateLatestMessageId(message.id);
   }
 
   function messageMarkup(message, isMine) {
@@ -573,14 +602,14 @@
   }
 
   function sendTyping() {
-    if (!state.ws || state.ws.readyState !== WebSocket.OPEN) return;
+    if (!isSocketOpen()) return;
     sendWs({ type: "typing" }, { quiet: true });
     if (state.typingTimer) window.clearTimeout(state.typingTimer);
     state.typingTimer = window.setTimeout(() => sendWs({ type: "stop_typing" }, { quiet: true }), 900);
   }
 
   function sendWs(payload, options = {}) {
-    if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
+    if (!isSocketOpen()) {
       if (!options.quiet) showToast("Connection is not ready", "err");
       return false;
     }
@@ -753,6 +782,88 @@
     if (!els.msgInput) return;
     els.msgInput.disabled = !isOnline;
     els.msgInput.placeholder = isOnline ? "Type a message..." : "Connecting...";
+  }
+
+  async function sendTextHttp(content) {
+    if (!cfg.sendUrl) {
+      showToast("Connection is not ready", "err");
+      return;
+    }
+    setComposerBusy(true);
+    try {
+      const response = await fetch(cfg.sendUrl, {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": getCsrfToken(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ content }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Message could not be sent");
+      if (data.message) {
+        appendMessage(data.message);
+        scrollDown();
+      }
+      if (els.msgInput) els.msgInput.value = "";
+      resizeInput();
+      updateMainAction();
+    } catch (error) {
+      showToast(error.message || "Message could not be sent", "err");
+    } finally {
+      setComposerBusy(false);
+      updateMainAction();
+    }
+  }
+
+  function startFallbackPolling() {
+    if (!cfg.messagesUrl) {
+      updateComposerAvailability(false);
+      return;
+    }
+    updateComposerAvailability(true);
+    if (state.fallbackPolling) return;
+    state.fallbackPolling = true;
+    pollMessages();
+    state.pollTimer = window.setInterval(pollMessages, 3000);
+  }
+
+  function stopFallbackPolling() {
+    state.fallbackPolling = false;
+    if (state.pollTimer) window.clearInterval(state.pollTimer);
+    state.pollTimer = null;
+  }
+
+  async function pollMessages() {
+    if (!cfg.messagesUrl || state.pollInFlight) return;
+    state.pollInFlight = true;
+    try {
+      const separator = cfg.messagesUrl.includes("?") ? "&" : "?";
+      const response = await fetch(`${cfg.messagesUrl}${separator}after_id=${encodeURIComponent(state.latestMessageId)}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not load messages");
+      (data.messages || []).forEach((message) => appendMessage(message));
+      if (data.messages?.length) scrollDown();
+    } catch (error) {
+      // Keep the composer usable; the next poll may recover.
+    } finally {
+      state.pollInFlight = false;
+    }
+  }
+
+  function initializeLatestMessageId() {
+    document.querySelectorAll("[data-msg-id]").forEach((row) => {
+      updateLatestMessageId(row.dataset.msgId);
+    });
+  }
+
+  function updateLatestMessageId(messageId) {
+    const numericId = Number(messageId);
+    if (Number.isFinite(numericId)) state.latestMessageId = Math.max(state.latestMessageId, numericId);
+  }
+
+  function isSocketOpen() {
+    return Boolean(state.ws && state.ws.readyState === WebSocket.OPEN);
   }
 
   function setComposerBusy(isBusy, keepRecorderControls) {
