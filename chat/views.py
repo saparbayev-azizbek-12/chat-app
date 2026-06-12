@@ -1,5 +1,6 @@
 import json
 import mimetypes
+from datetime import timedelta
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.shortcuts import render, redirect, get_object_or_404
@@ -10,7 +11,11 @@ from django.http import JsonResponse
 from django.conf import settings
 from django.utils import timezone
 from django.core.paginator import Paginator
+from accounts.models import UserProfile
 from chat.models import AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, Conversation, Message
+
+
+PRESENCE_TIMEOUT = timedelta(seconds=45)
 
 
 def broadcast_message_to_conversation(conversation_id, message):
@@ -24,6 +29,26 @@ def broadcast_message_to_conversation(conversation_id, message):
             'message': message,
         }
     )
+
+
+def presence_payload(profile):
+    now = timezone.now()
+    last_seen = profile.last_seen
+    is_stale = bool(profile.is_online and last_seen and now - last_seen > PRESENCE_TIMEOUT)
+
+    if is_stale:
+        UserProfile.objects.filter(pk=profile.pk).update(is_online=False)
+        profile.is_online = False
+
+    is_online = bool(profile.is_online and (not last_seen or now - last_seen <= PRESENCE_TIMEOUT))
+    status_text = 'Online' if is_online else profile.get_last_seen_display()
+
+    return {
+        'user_id': profile.user_id,
+        'is_online': is_online,
+        'last_seen': last_seen.isoformat() if last_seen else None,
+        'status_text': status_text,
+    }
 
 
 @login_required
@@ -123,6 +148,44 @@ def conversation_view(request, conversation_id):
         'other_user': other_user,
         'messages': messages,
     })
+
+
+@login_required
+@require_POST
+def presence_heartbeat(request):
+    """HTTP presence heartbeat for deployments without WebSockets."""
+    now = timezone.now()
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    profile.is_online = True
+    profile.last_seen = now
+    profile.save(update_fields=['is_online', 'last_seen'])
+    return JsonResponse(presence_payload(profile))
+
+
+@login_required
+@require_POST
+def presence_offline(request):
+    """Best-effort HTTP offline marker when the page is closed."""
+    now = timezone.now()
+    UserProfile.objects.filter(user=request.user).update(is_online=False, last_seen=now)
+    profile = request.user.profile
+    profile.is_online = False
+    profile.last_seen = now
+    return JsonResponse(presence_payload(profile))
+
+
+@login_required
+def conversation_presence(request, conversation_id):
+    conversation = get_object_or_404(
+        Conversation.objects.prefetch_related('participants__profile'),
+        id=conversation_id,
+        participants=request.user,
+    )
+    other_user = conversation.get_other_participant(request.user)
+    if not other_user:
+        return JsonResponse({'error': 'No other participant'}, status=404)
+
+    return JsonResponse(presence_payload(other_user.profile))
 
 
 @login_required

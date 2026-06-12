@@ -18,12 +18,18 @@
     fallbackPolling: false,
     pollTimer: null,
     pollInFlight: false,
+    heartbeatTimer: null,
+    presenceTimer: null,
+    presenceInFlight: false,
   };
 
   const cfg = {
     conversationId: app.dataset.conversationId || "",
     userId: app.dataset.userId || "",
     otherUserId: app.dataset.otherUserId || "",
+    heartbeatUrl: app.dataset.heartbeatUrl || "",
+    offlineUrl: app.dataset.offlineUrl || "",
+    presenceUrl: app.dataset.presenceUrl || "",
     sendUrl: app.dataset.sendUrl || "",
     uploadUrl: app.dataset.uploadUrl || "",
     messagesUrl: app.dataset.messagesUrl || "",
@@ -69,6 +75,7 @@
     bindMediaControls();
     buildEmojiPicker();
     initializeLatestMessageId();
+    startHttpPresence();
     connectSocket();
     scrollDown();
   }
@@ -625,7 +632,7 @@
     if (String(data.user_id) === String(cfg.otherUserId)) {
       els.headerStatusDot?.classList.toggle("online", isOnline);
       if (els.headerLastSeen) {
-        els.headerLastSeen.textContent = isOnline ? "Online" : "Last seen recently";
+        els.headerLastSeen.textContent = data.status_text || (isOnline ? "Online" : "Last seen recently");
         state.headerPresenceText = els.headerLastSeen.textContent;
       }
     }
@@ -813,6 +820,65 @@
     } finally {
       setComposerBusy(false);
       updateMainAction();
+    }
+  }
+
+  function startHttpPresence() {
+    if (cfg.heartbeatUrl) {
+      sendHeartbeat();
+      state.heartbeatTimer = window.setInterval(sendHeartbeat, 20000);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") sendHeartbeat();
+      });
+      window.addEventListener("pagehide", sendOfflineBeacon);
+    }
+    if (cfg.presenceUrl) {
+      pollPresence();
+      state.presenceTimer = window.setInterval(pollPresence, 10000);
+    }
+  }
+
+  async function sendHeartbeat() {
+    if (!cfg.heartbeatUrl) return;
+    try {
+      await fetch(cfg.heartbeatUrl, {
+        method: "POST",
+        headers: { "X-CSRFToken": getCsrfToken() },
+        keepalive: true,
+      });
+    } catch (error) {
+      // Presence is best-effort; message sending should not depend on it.
+    }
+  }
+
+  function sendOfflineBeacon() {
+    if (!cfg.offlineUrl) return;
+    const csrfToken = getCsrfToken();
+    if (navigator.sendBeacon) {
+      const formData = new FormData();
+      formData.append("csrfmiddlewaretoken", csrfToken);
+      navigator.sendBeacon(cfg.offlineUrl, formData);
+      return;
+    }
+    fetch(cfg.offlineUrl, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfToken },
+      keepalive: true,
+    }).catch(() => {});
+  }
+
+  async function pollPresence() {
+    if (!cfg.presenceUrl || state.presenceInFlight) return;
+    state.presenceInFlight = true;
+    try {
+      const response = await fetch(cfg.presenceUrl);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not load presence");
+      updateStatusUI(data);
+    } catch (error) {
+      // The next poll can recover.
+    } finally {
+      state.presenceInFlight = false;
     }
   }
 

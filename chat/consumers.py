@@ -364,7 +364,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def set_online(self, status):
         from accounts.models import UserProfile
-        UserProfile.objects.filter(user=self.user).update(is_online=status)
+        fields = {'is_online': status}
+        if status:
+            fields['last_seen'] = timezone.now()
+        UserProfile.objects.filter(user=self.user).update(**fields)
 
     @database_sync_to_async
     def update_last_seen(self):

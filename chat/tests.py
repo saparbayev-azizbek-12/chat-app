@@ -1,9 +1,12 @@
 import json
+from datetime import timedelta
 
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
+from accounts.models import UserProfile
 from chat.models import Conversation, Message
 
 
@@ -63,3 +66,42 @@ class ChatHttpFallbackTests(TestCase):
         data = response.json()
         self.assertEqual([message['id'] for message in data['messages']], [new.id])
         self.assertTrue(new.read_by.filter(id=self.alice.id).exists())
+
+    def test_presence_heartbeat_marks_user_online(self):
+        self.client.force_login(self.alice)
+        response = self.client.post(reverse('chat:presence_heartbeat'))
+
+        self.assertEqual(response.status_code, 200)
+        self.alice.profile.refresh_from_db()
+        self.assertTrue(self.alice.profile.is_online)
+        self.assertIsNotNone(self.alice.profile.last_seen)
+        self.assertTrue(response.json()['is_online'])
+
+    def test_conversation_presence_returns_other_participant_status(self):
+        now = timezone.now()
+        UserProfile.objects.filter(user=self.bob).update(is_online=True, last_seen=now)
+
+        self.client.force_login(self.alice)
+        response = self.client.get(
+            reverse('chat:conversation_presence', args=[self.conversation.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['user_id'], self.bob.id)
+        self.assertTrue(data['is_online'])
+        self.assertEqual(data['status_text'], 'Online')
+
+    def test_conversation_presence_marks_stale_online_status_offline(self):
+        stale_time = timezone.now() - timedelta(minutes=2)
+        UserProfile.objects.filter(user=self.bob).update(is_online=True, last_seen=stale_time)
+
+        self.client.force_login(self.alice)
+        response = self.client.get(
+            reverse('chat:conversation_presence', args=[self.conversation.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()['is_online'])
+        self.bob.profile.refresh_from_db()
+        self.assertFalse(self.bob.profile.is_online)
