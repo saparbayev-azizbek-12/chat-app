@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block title %}Profile - Chattie{% endblock %}
+
+{% block content %}
+<main class="min-h-screen bg-[var(--bg)] text-[var(--text)] px-5 py-8">
+  <section class="mx-auto w-full max-w-3xl">
+    <div class="mb-6 flex items-center justify-between gap-4 pl-14 md:pl-0">
+      <div>
+        <h1 class="text-2xl font-bold">{% if profile_user == request.user %}Account details{% else %}{{ profile.display_name }}{% endif %}</h1>
+      </div>
+    </div>
+
+    {% if profile_user == request.user %}
+      <form method="post" action="{% url 'accounts:profile_edit' %}" enctype="multipart/form-data" class="rounded-xl border border-[var(--border)] bg-[var(--bg-2)] p-5 shadow-sm">
+        {% csrf_token %}
+        <div class="flex flex-col gap-5 sm:flex-row sm:items-center">
+          <label class="relative grid h-24 w-24 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full bg-[var(--bg)] text-3xl font-black text-[var(--primary)] ring-1 ring-[var(--border)]">
+            {% if profile.avatar %}
+              <img id="avatar-preview" src="{{ profile.avatar.url }}" alt="{{ profile.display_name }}" class="h-full w-full object-cover">
+            {% else %}
+              <span id="avatar-fallback">{{ profile.display_name|first|upper }}</span>
+              <img id="avatar-preview" alt="" class="hidden h-full w-full object-cover">
+            {% endif %}
+            <span class="absolute inset-x-0 bottom-0 bg-black/55 py-1 text-center text-[10px] font-bold text-white">Change</span>
+            <input id="avatar-input" type="file" name="avatar" accept="image/*" class="hidden">
+          </label>
+          <div class="min-w-0 flex-1">
+            <div class="grid gap-3 sm:grid-cols-2">
+              <input name="first_name" value="{{ profile_user.first_name }}" placeholder="First name" class="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]">
+              <input name="last_name" value="{{ profile_user.last_name }}" placeholder="Last name" class="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]">
+            </div>
+            <p class="mt-1 truncate text-sm text-[var(--text-muted)]">{{ profile.display_name }}</p>
+            <p class="mt-1 truncate text-sm text-[var(--text-muted)]">@{{ profile_user.username }}</p>
+            <div class="mt-3 inline-flex rounded-full border border-[var(--border)] px-3 py-1 text-xs font-bold text-[var(--primary)]">
+              {% if profile.is_online %}Online{% else %}{{ profile.get_last_seen_display }}{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 border-t border-[var(--border)] pt-5">
+          <h3 class="text-sm font-bold">Bio</h3>
+          <input name="bio" maxlength="140" value="{{ profile.bio }}" placeholder="Write something about yourself..." class="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]">
+          <button type="submit" class="mt-4 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--primary-dark)]">Save profile</button>
+        </div>
+      </form>
+    {% else %}
+      <article class="rounded-xl border border-[var(--border)] bg-[var(--bg-2)] p-5 shadow-sm">
+        <div class="flex flex-col gap-5 sm:flex-row sm:items-center">
+          <div class="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--bg)] text-3xl font-black text-[var(--primary)] ring-1 ring-[var(--border)]">
+            {% if profile.avatar %}
+              <img src="{{ profile.avatar.url }}" alt="{{ profile.display_name }}" class="h-full w-full object-cover">
+            {% else %}
+              <span>{{ profile.display_name|first|upper }}</span>
+            {% endif %}
+          </div>
+          <div class="min-w-0 flex-1">
+            <h2 class="truncate text-2xl font-bold">{{ profile.display_name }}</h2>
+            <p class="mt-1 truncate text-sm text-[var(--text-muted)]">@{{ profile_user.username }}</p>
+            <div class="mt-3 inline-flex rounded-full border border-[var(--border)] px-3 py-1 text-xs font-bold text-[var(--primary)]">
+              {% if profile.is_online %}Online{% else %}{{ profile.get_last_seen_display }}{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 border-t border-[var(--border)] pt-5">
+          <h3 class="text-sm font-bold">Bio</h3>
+          <p class="mt-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-3 text-sm text-[var(--text-muted)]">
+            {{ profile.bio|default:'No bio yet.' }}
+          </p>
+        </div>
+      </article>
+    {% endif %}
+  </section>
+</main>
+<script>
+  const avatarInput = document.getElementById('avatar-input');
+  const avatarPreview = document.getElementById('avatar-preview');
+  const avatarFallback = document.getElementById('avatar-fallback');
+  avatarInput?.addEventListener('change', () => {
+    const file = avatarInput.files?.[0];
+    if (!file || !avatarPreview) return;
+    avatarPreview.src = URL.createObjectURL(file);
+    avatarPreview.classList.remove('hidden');
+    avatarFallback?.classList.add('hidden');
+  });
+</script>
+{% endblock %}

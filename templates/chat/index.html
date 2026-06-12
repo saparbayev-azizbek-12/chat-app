@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load chat_extras %}
+
+{% block title %}{% if active_conversation and other_user %}{{ other_user.profile.display_name }} - Chattie{% else %}Chattie{% endif %}{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'chat/chat.css' %}">
+{% endblock %}
+
+{% block content %}
+<div
+  id="chat-app"
+  class="chat-shell {% if active_conversation %}chat-open{% endif %}"
+  data-conversation-id="{{ active_conversation.id|default:'' }}"
+  data-user-id="{{ request.user.id }}"
+  data-other-user-id="{{ other_user.id|default:'' }}"
+  data-upload-url="{% if active_conversation %}{% url 'chat:upload_attachment' active_conversation.id %}{% endif %}"
+  data-start-url="{% url 'chat:start_conversation' %}"
+  data-user-search-url="{% url 'accounts:user_search' %}"
+  data-index-url="{% url 'chat:index' %}"
+>
+  <aside class="app-rail" aria-label="Main navigation">
+    <a href="{% url 'chat:index' %}" class="chat-logo" aria-label="Chattie home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.03 2 11c0 2.65 1.27 5.02 3.29 6.67L4.4 22l4.64-2.27c.93.18 1.92.27 2.96.27 5.52 0 10-4.03 10-9S17.52 2 12 2Zm-3.4 8.8a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Zm3.4 0a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Zm3.4 0a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Z"/></svg>
+    </a>
+
+    <button class="rail-btn active" type="button" title="Chats" aria-label="Chats" data-panel-trigger="chats">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.75A2.75 2.75 0 0 1 6.75 3h10.5A2.75 2.75 0 0 1 20 5.75v7.5A2.75 2.75 0 0 1 17.25 16H11.7l-4.06 3.25A1 1 0 0 1 6 18.47V16.02A2.75 2.75 0 0 1 4 13.38V5.75Zm4 3.5a1 1 0 1 0 0 2h8a1 1 0 1 0 0-2H8Zm0 3.25a1 1 0 1 0 0 2h5.5a1 1 0 1 0 0-2H8Z"/></svg>
+    </button>
+
+    <button class="rail-btn" type="button" title="New chat" aria-label="New chat" data-new-chat-open>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6V5Z"/></svg>
+    </button>
+
+    <a class="rail-btn" href="{% url 'accounts:profile' %}" title="Profile" aria-label="Profile">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4.42 0-8 2.24-8 5v.25A1.75 1.75 0 0 0 5.75 21h12.5A1.75 1.75 0 0 0 20 19.25V19c0-2.76-3.58-5-8-5Z"/></svg>
+    </a>
+
+    <div class="rail-spacer"></div>
+
+    <button class="rail-btn" type="button" title="Theme" aria-label="Toggle theme" data-theme-toggle>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1Zm0 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm9-8h-1a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2ZM4 11H3a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2Z"/></svg>
+    </button>
+
+    <a href="{% url 'account_logout' %}" class="rail-btn" title="Logout" aria-label="Logout">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.75A2.75 2.75 0 0 1 7.75 2h5.5A2.75 2.75 0 0 1 16 4.75V7a1 1 0 1 1-2 0V4.75a.75.75 0 0 0-.75-.75h-5.5a.75.75 0 0 0-.75.75v14.5c0 .41.34.75.75.75h5.5c.41 0 .75-.34.75-.75V17a1 1 0 1 1 2 0v2.25A2.75 2.75 0 0 1 13.25 22h-5.5A2.75 2.75 0 0 1 5 19.25V4.75Zm12.3 4.54a1 1 0 0 1 1.4 0l2 2a1 1 0 0 1 0 1.42l-2 2a1 1 0 0 1-1.4-1.42l.29-.29H11a1 1 0 1 1 0-2h6.59l-.3-.29a1 1 0 0 1 0-1.42Z"/></svg>
+      <span>Logout</span>
+    </a>
+
+    <div class="rail-user">
+      {% if request.user.profile.avatar %}
+        <img src="{{ request.user.profile.avatar.url }}" alt="{{ request.user.profile.display_name }}" class="avatar-sm">
+      {% else %}
+        <div class="avatar-sm avatar-fallback">{{ request.user.username|first|upper }}</div>
+      {% endif %}
+    </div>
+  </aside>
+
+  <section id="panel-list" class="conversation-panel">
+    <div class="panel-view is-active" data-panel="chats">
+      <header class="panel-header">
+        <div>
+          <h1>Chats</h1>
+        </div>
+        <button type="button" class="primary-action" data-new-chat-open>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6V5Z"/></svg>
+          <span>New Chat</span>
+        </button>
+      </header>
+
+      <label class="search-box">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 0 4.02 11.6l3.44 3.44a1 1 0 0 0 1.41-1.41l-3.44-3.44A6.5 6.5 0 0 0 10.5 4Zm-4.5 6.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0Z"/></svg>
+        <input type="search" id="conv-search" placeholder="Search users or messages">
+      </label>
+
+      <div class="conversation-list" id="conv-list">
+        {% for item in conversations %}
+          <a
+            href="{% url 'chat:conversation' item.conversation.id %}"
+            class="conversation-item {% if active_conversation.id == item.conversation.id %}active{% endif %}"
+            data-conv-id="{{ item.conversation.id }}"
+            data-search-text="{{ item.other_user.profile.display_name }} {{ item.other_user.username }} {% if item.last_message %}{{ item.last_message.content }} {{ item.last_message.attachment_name }}{% endif %}"
+          >
+            <span class="avatar-wrap">
+              {% if item.other_user.profile.avatar %}
+                <img src="{{ item.other_user.profile.avatar.url }}" alt="{{ item.other_user.profile.display_name }}" class="avatar-md">
+              {% else %}
+                <span class="avatar-md avatar-fallback">{{ item.other_user.username|first|upper }}</span>
+              {% endif %}
+              <span class="presence-dot {% if item.other_user.profile.is_online %}online{% endif %}" data-user-id="{{ item.other_user.id }}"></span>
+            </span>
+            <span class="conversation-copy">
+              <span class="conversation-topline">
+                <strong>{{ item.other_user.profile.display_name }}</strong>
+                <time>{% if item.last_message %}{{ item.last_message.created_at|date:"g:i A" }}{% endif %}</time>
+              </span>
+              <span class="conversation-subline">
+                <span>
+                  {% if item.last_message %}
+                    {% if item.last_message.message_type == 'image' %}Image
+                    {% elif item.last_message.message_type == 'video' %}Video
+                    {% elif item.last_message.message_type == 'voice' %}Voice message
+                    {% elif item.last_message.message_type == 'audio' %}Audio
+                    {% elif item.last_message.message_type == 'file' %}{{ item.last_message.attachment_name|default:"File" }}
+                    {% else %}{{ item.last_message.content }}
+                    {% endif %}
+                  {% else %}
+                    Start a conversation
+                  {% endif %}
+                </span>
+                {% if item.unread_count > 0 %}
+                  <b>{{ item.unread_count }}</b>
+                {% endif %}
+              </span>
+            </span>
+          </a>
+        {% empty %}
+          <div class="empty-panel">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.75A2.75 2.75 0 0 1 6.75 3h10.5A2.75 2.75 0 0 1 20 5.75v7.5A2.75 2.75 0 0 1 17.25 16H11.7l-4.06 3.25A1 1 0 0 1 6 18.47V16.02A2.75 2.75 0 0 1 4 13.38V5.75Z"/></svg>
+            <p>No chats yet</p>
+            <button type="button" data-new-chat-open>Find someone</button>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="panel-view" data-panel="new-chat">
+      <header class="panel-header panel-header-stack">
+        <h1>New chat</h1>
+      </header>
+
+      <label class="search-box">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 0 4.02 11.6l3.44 3.44a1 1 0 0 0 1.41-1.41l-3.44-3.44A6.5 6.5 0 0 0 10.5 4Zm-4.5 6.5a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0Z"/></svg>
+        <input type="search" id="user-search" placeholder="Search username">
+      </label>
+
+      <div id="search-results" class="user-results">
+        <div class="new-chat-hint">
+          <p>Type at least 2 characters to find contacts.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <main id="panel-chat" class="chat-panel">
+    {% if active_conversation %}
+      <header class="chat-header">
+        <button type="button" class="mobile-back" aria-label="Back to chats" data-close-chat>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 5.3a1 1 0 0 1 0 1.4L10.41 11H19a1 1 0 1 1 0 2h-8.59l4.3 4.3a1 1 0 0 1-1.42 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.42 0Z"/></svg>
+        </button>
+
+        <a href="{% url 'accounts:profile_user' other_user.username %}" class="avatar-wrap" aria-label="Open profile">
+          {% if other_user.profile.avatar %}
+            <img src="{{ other_user.profile.avatar.url }}" alt="{{ other_user.profile.display_name }}" class="avatar-md">
+          {% else %}
+            <span class="avatar-md avatar-fallback">{{ other_user.username|first|upper }}</span>
+          {% endif %}
+          <span id="header-status-dot" class="presence-dot {% if other_user.profile.is_online %}online{% endif %}"></span>
+        </a>
+
+        <a href="{% url 'accounts:profile_user' other_user.username %}" class="chat-title" aria-label="Open profile">
+          <h2>{{ other_user.profile.display_name }}</h2>
+          <p id="header-last-seen">{% if other_user.profile.is_online %}Online{% else %}{{ other_user.profile.get_last_seen_display }}{% endif %}</p>
+          <p id="header-typing" class="header-typing hidden">...typing</p>
+        </a>
+      </header>
+
+      <div class="messages-area" id="msg-container">
+        {% for message in messages %}
+          {% ifchanged message.created_at|date:"Y-m-d" %}
+            <div class="day-chip">{{ message.created_at|day_label }}</div>
+          {% endifchanged %}
+          {% include 'chat/partials/message_bubble.html' with message=message %}
+        {% endfor %}
+        <div id="scroll-anchor"></div>
+      </div>
+
+      <footer class="composer">
+        <div id="attachment-preview" class="attachment-preview hidden"></div>
+        <div id="emoji-picker" class="emoji-picker hidden" aria-label="Emoji picker"></div>
+
+        <div id="recording-bar" class="recording-bar hidden">
+          <span class="record-dot"></span>
+          <strong id="recording-time">0:00</strong>
+          <span class="record-wave" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </span>
+          <button type="button" class="text-action" data-record-cancel>Cancel</button>
+          <button type="button" class="send-mini" data-record-stop title="Send voice" aria-label="Send voice">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.65 3.35a1 1 0 0 1 1.04-.22l17 8a1 1 0 0 1 0 1.8l-17 8A1 1 0 0 1 2.28 19l2.33-6.03L12 12 4.61 11.03 2.28 5a1 1 0 0 1 .37-1.65Z"/></svg>
+          </button>
+        </div>
+
+        <div class="composer-row">
+          <button type="button" class="tool-btn" title="Emoji" aria-label="Emoji" data-emoji-toggle>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM8.6 9.8a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Zm6.8 0a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4ZM7.9 13.2a1 1 0 0 1 1.38.28 3.26 3.26 0 0 0 5.44 0 1 1 0 1 1 1.66 1.12 5.26 5.26 0 0 1-8.76 0 1 1 0 0 1 .28-1.38Z"/></svg>
+          </button>
+
+          <textarea id="msg-input" rows="1" placeholder="Type a message..." aria-label="Message"></textarea>
+
+          <input type="file" id="file-input" hidden>
+          <button type="button" class="tool-btn" title="Attach file" aria-label="Attach file" data-file-open>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.47 17.74a4 4 0 0 0 5.66 0l5.3-5.3a6 6 0 1 0-8.48-8.49l-6.36 6.36a8 8 0 0 0 11.32 11.32l5.66-5.66a1 1 0 0 0-1.42-1.42l-5.65 5.66A6 6 0 0 1 6 11.73l6.36-6.36a4 4 0 0 1 5.66 5.66l-5.3 5.3a2 2 0 0 1-2.83-2.83l5.3-5.3a1 1 0 1 0-1.41-1.42l-5.31 5.3a4 4 0 0 0 0 5.66Z"/></svg>
+          </button>
+
+          <button type="button" id="main-send-btn" class="send-action" title="Record voice" aria-label="Record voice" data-main-action>
+            <svg class="mic-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.93V21a1 1 0 1 1-2 0v-3.07A7 7 0 0 1 5 11a1 1 0 1 1 2 0 5 5 0 0 0 10 0Z"/></svg>
+            <svg class="send-icon hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.65 3.35a1 1 0 0 1 1.04-.22l17 8a1 1 0 0 1 0 1.8l-17 8A1 1 0 0 1 2.28 19l2.33-6.03L12 12 4.61 11.03 2.28 5a1 1 0 0 1 .37-1.65Z"/></svg>
+          </button>
+        </div>
+      </footer>
+    {% else %}
+      <div class="welcome-state">
+        <div class="welcome-card">
+          <span class="welcome-mark">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.03 2 11c0 2.65 1.27 5.02 3.29 6.67L4.4 22l4.64-2.27c.93.18 1.92.27 2.96.27 5.52 0 10-4.03 10-9S17.52 2 12 2Z"/></svg>
+          </span>
+          <h2>Welcome, {{ request.user.profile.display_name|default:request.user.username }}</h2>
+          <p>Select a conversation or start a new chat from the sidebar.</p>
+          <button type="button" class="primary-action" data-new-chat-open>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6V5Z"/></svg>
+            <span>New Chat</span>
+          </button>
+        </div>
+      </div>
+    {% endif %}
+  </main>
+</div>
+
+<div id="video-modal" class="video-modal hidden" aria-hidden="true">
+  <button type="button" class="video-modal-close" aria-label="Close video">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.7 5.3a1 1 0 0 0-1.4 1.4L10.58 12 5.3 17.3a1 1 0 1 0 1.4 1.4L12 13.42l5.3 5.3a1 1 0 0 0 1.4-1.42L13.42 12l5.3-5.3a1 1 0 0 0-1.42-1.4L12 10.58 6.7 5.3Z"/></svg>
+  </button>
+  <video id="video-modal-player" controls playsinline></video>
+</div>
+
+<div id="ctx-overlay" class="hidden context-overlay"></div>
+<div id="ctx-menu" class="ctx hidden"></div>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script src="{% static 'chat/chat.js' %}"></script>
+{% endblock %}

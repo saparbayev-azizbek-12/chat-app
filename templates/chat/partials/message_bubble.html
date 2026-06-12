@@ -1,0 +1,69 @@
+<div class="message-row {% if message.sender == user %}mine{% else %}theirs{% endif %}" data-msg-id="{{ message.id }}">
+  <article
+    class="message-bubble {% if message.sender == user %}bubble-mine{% else %}bubble-them{% endif %}"
+    oncontextmenu="showCtx(event, {{ message.id }}, {% if message.sender == user %}true{% else %}false{% endif %})"
+  >
+    {% if message.deleted_for_everyone %}
+      <p class="deleted-message">Deleted message</p>
+    {% else %}
+      {% if message.message_type == 'image' and message.attachment %}
+        <button type="button" class="media-shell" data-open-url="{{ message.attachment.url }}" aria-label="Open image">
+          <img src="{{ message.attachment.url }}" alt="{{ message.attachment_name|default:'Image attachment' }}">
+        </button>
+      {% elif message.message_type == 'video' and message.attachment %}
+        <button type="button" class="media-shell video-thumb" data-video-url="{{ message.attachment.url }}" data-title="{{ message.attachment_name|default:'Video' }}" aria-label="Open video">
+          <video src="{{ message.attachment.url }}" muted preload="metadata" playsinline></video>
+          <span class="video-play-badge">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14Z"/></svg>
+          </span>
+        </button>
+      {% elif message.is_audio_attachment %}
+        {% if message.attachment %}
+          <div class="audio-card {% if message.message_type == 'voice' %}voice-card{% endif %}">
+            <button type="button" class="audio-play" data-audio-toggle aria-label="Play audio">
+              <svg class="audio-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14Z"/></svg>
+              <svg class="audio-pause-icon hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4a1.5 1.5 0 0 0-1.5 1.5v13a1.5 1.5 0 0 0 3 0v-13A1.5 1.5 0 0 0 7 4Zm10 0a1.5 1.5 0 0 0-1.5 1.5v13a1.5 1.5 0 0 0 3 0v-13A1.5 1.5 0 0 0 17 4Z"/></svg>
+            </button>
+            <div class="audio-copy">
+              <strong>{% if message.message_type == 'voice' %}Voice message{% else %}{{ message.attachment_name|default:'Audio' }}{% endif %}</strong>
+              <input class="audio-progress" type="range" min="0" max="100" step="0.1" value="0" data-audio-progress aria-label="Audio progress">
+              <span class="audio-meta-line">
+                <small><span data-audio-current>0:00</span> / <span data-audio-duration>--:--</span></small>
+                <small>{{ message.attachment_size_display }}</small>
+              </span>
+            </div>
+            <audio src="{{ message.attachment.url }}" preload="metadata"></audio>
+          </div>
+        {% endif %}
+      {% elif message.message_type == 'file' and message.attachment %}
+        <a class="file-card" href="{{ message.attachment.url }}" download>
+          <span class="file-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.75 2A2.75 2.75 0 0 0 4 4.75v14.5A2.75 2.75 0 0 0 6.75 22h10.5A2.75 2.75 0 0 0 20 19.25V8.41a2 2 0 0 0-.59-1.41L15 2.59A2 2 0 0 0 13.59 2H6.75Zm7 1.75V7a1 1 0 0 0 1 1h3.25l-4.25-4.25Z"/></svg>
+          </span>
+          <span class="file-copy">
+            <strong>{{ message.attachment_name|default:'Attachment' }}</strong>
+            <small>{{ message.attachment_size_display }}</small>
+          </span>
+        </a>
+      {% endif %}
+
+      {% if message.content %}
+        <p class="message-text">{{ message.content }}</p>
+      {% endif %}
+    {% endif %}
+
+    <footer class="message-meta">
+      {% if message.is_edited %}<span>edited</span>{% endif %}
+      <time>{{ message.created_at|date:"g:i A" }}</time>
+      {% if message.sender == user %}
+        {% if message.read_by.exists %}
+          <span class="read-status is-read" data-message-status="read">&#10003;&#10003;</span>
+        {% elif message.delivered_to.exists %}
+          <span class="read-status is-delivered" data-message-status="delivered">&#10003;&#10003;</span>
+        {% else %}
+          <span class="read-status is-sent" data-message-status="sent">&#10003;</span>
+        {% endif %}
+      {% endif %}
+    </footer>
+  </article>
+</div>

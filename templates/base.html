@@ -1,0 +1,323 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>{% block title %}Chattie{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'logo.svg' %}">
+
+  <meta name="description" content="{% block meta_description %}Chattie — Real-time chat{% endblock %}" />
+  <meta name="theme-color" content="#22c55e" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            p: { DEFAULT: '#22c55e', dark: '#16a34a' },
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    /* ─── CSS Variables ─────────────────────────────── */
+    :root {
+      --bg:           #ffffff;
+      --bg-2:         #f9fafb;
+      --bg-3:         #f3f4f6;
+      --bg-hover:     #f3f4f6;
+      --text:         #111827;
+      --text-2:       #374151;
+      --text-muted:   #6b7280;
+      --border:       #e5e7eb;
+      --border-2:     #d1d5db;
+      --primary:      #22c55e;
+      --primary-dark: #16a34a;
+      --primary-fg:   #ffffff;
+      --bubble-mine:  #dcfce7;
+      --bubble-mine-t:#14532d;
+      --bubble-them:  #ffffff;
+      --bubble-them-t:#111827;
+      --shadow:       0 1px 3px rgba(0,0,0,.08);
+      --shadow-md:    0 4px 12px rgba(0,0,0,.10);
+    }
+
+    .dark {
+      --bg:           #0d1117;
+      --bg-2:         #161b22;
+      --bg-3:         #21262d;
+      --bg-hover:     #21262d;
+      --text:         #e6edf3;
+      --text-2:       #c9d1d9;
+      --text-muted:   #8b949e;
+      --border:       #30363d;
+      --border-2:     #21262d;
+      --primary:      #22c55e;
+      --primary-dark: #16a34a;
+      --primary-fg:   #ffffff;
+      --bubble-mine:  #14532d;
+      --bubble-mine-t:#d1fae5;
+      --bubble-them:  #21262d;
+      --bubble-them-t:#e6edf3;
+      --shadow:       0 1px 3px rgba(0,0,0,.3);
+      --shadow-md:    0 4px 12px rgba(0,0,0,.4);
+    }
+
+    /* ─── Base ────────────────────────────────────────── */
+    html, body { height: 100%; margin: 0; font-family: 'Inter', sans-serif; }
+    body { background: var(--bg); color: var(--text); }
+
+    /* ─── Scrollbar ───────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 4px; }
+
+    /* ─── Typing dots ─────────────────────────────────── */
+    .dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--text-muted); }
+    .dot:nth-child(1) { animation: dotBounce 1.2s .0s infinite; }
+    .dot:nth-child(2) { animation: dotBounce 1.2s .2s infinite; }
+    .dot:nth-child(3) { animation: dotBounce 1.2s .4s infinite; }
+    @keyframes dotBounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+
+    /* ─── Message bubbles ─────────────────────────────── */
+    .bubble-mine  { background: var(--bubble-mine);  color: var(--bubble-mine-t); border-radius: 18px 4px 18px 18px; }
+    .bubble-them  { background: var(--bubble-them);  color: var(--bubble-them-t); border-radius: 4px 18px 18px 18px; }
+
+    /* ─── Animations ──────────────────────────────────── */
+    @keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+    .fade-up { animation: fadeUp .18s ease-out; }
+
+    /* ─── Recording pulse ─────────────────────────────── */
+    @keyframes recPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.4); } 70% { box-shadow: 0 0 0 10px rgba(239,68,68,0); } }
+    .rec-pulse { animation: recPulse 1.4s infinite; }
+
+    /* ─── Voice waveform ──────────────────────────────── */
+    .wave-bar { width: 3px; border-radius: 3px; background: var(--primary); animation: wavePulse 1s ease-in-out infinite; }
+    @keyframes wavePulse { 0%,100% { transform: scaleY(.4); } 50% { transform: scaleY(1); } }
+    .wave-bar:nth-child(2) { animation-delay:.1s; }
+    .wave-bar:nth-child(3) { animation-delay:.2s; }
+    .wave-bar:nth-child(4) { animation-delay:.15s; }
+    .wave-bar:nth-child(5) { animation-delay:.05s; }
+
+    /* ─── Mobile slide panels ────────────────────────── */
+    @media (max-width: 767px) {
+      #panel-list {
+        position: fixed; inset: 0;
+        z-index: 10;
+        transition: transform .28s cubic-bezier(.4,0,.2,1);
+        background: var(--bg);
+      }
+      #panel-chat {
+        position: fixed; inset: 0;
+        z-index: 20;
+        transform: translateX(100%);
+        transition: transform .28s cubic-bezier(.4,0,.2,1);
+        background: var(--bg-2);
+      }
+      .chat-open #panel-list  { transform: translateX(-30%); }
+      .chat-open #panel-chat  { transform: translateX(0); }
+
+      #icon-sidebar { display: none !important; }
+
+      /* Bottom nav on mobile */
+      #bottom-nav {
+        display: flex !important;
+      }
+    }
+
+    @media (min-width: 768px) {
+      #panel-list { width: 300px; position: relative; background: var(--bg); }
+      #panel-chat { flex: 1; position: relative; background: var(--bg-2); }
+      .chat-open #panel-list  { transform: none; }
+      .chat-open #panel-chat  { transform: none; }
+      #bottom-nav { display: none !important; }
+    }
+
+    /* ─── Context menu ─────────────────────────────────── */
+    .ctx { position: fixed; z-index: 100; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-md); min-width: 160px; overflow: hidden; }
+    .ctx button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; font-size: 13.5px; color: var(--text); transition: background .12s; text-align: left; }
+    .ctx button:hover { background: var(--bg-hover); }
+    .ctx button.danger { color: #ef4444; }
+    .ctx-sep { height: 1px; background: var(--border); }
+
+    /* ─── Toast ────────────────────────────────────────── */
+    .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 10px 18px; border-radius: 24px; font-size: 13px; font-weight: 500; box-shadow: var(--shadow-md); animation: fadeUp .2s ease-out; white-space: nowrap; }
+    @media (min-width: 768px) { .toast { bottom: 24px; } }
+    .toast-ok  { background: #111; color: #fff; }
+    .toast-err { background: #dc2626; color: #fff; }
+
+    /* ─── Input ────────────────────────────────────────── */
+    .chat-input { background: var(--bg-3); color: var(--text); border: 1px solid var(--border); border-radius: 22px; padding: 10px 16px; font-size: 14px; width: 100%; resize: none; outline: none; line-height: 1.5; max-height: 120px; transition: border-color .15s; }
+    .chat-input:focus { border-color: var(--primary); }
+    .chat-input::placeholder { color: var(--text-muted); }
+
+    /* ─── Search ────────────────────────────────────────── */
+    .search-input { background: var(--bg-2); border: 1px solid var(--border); border-radius: 22px; padding: 8px 14px 8px 36px; font-size: 13.5px; color: var(--text); outline: none; width: 100%; transition: border-color .15s; }
+    .search-input:focus { border-color: var(--primary); }
+    .search-input::placeholder { color: var(--text-muted); }
+
+    /* ─── Icon button ─────────────────────────────────── */
+    .icon-btn { display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background .15s; cursor: pointer; flex-shrink: 0; }
+    .icon-btn:hover { background: var(--bg-hover); }
+
+    /* ─── Send / Voice button ─────────────────────────── */
+    .send-btn { width: 42px; height: 42px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: background .15s, transform .1s; }
+    .send-btn:active { transform: scale(.93); }
+    .send-btn:hover { background: var(--primary-dark); }
+
+    /* ─── Conversation item ───────────────────────────── */
+    .conv-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; transition: background .12s; border-bottom: 1px solid transparent; }
+    .conv-item:hover { background: var(--bg-hover); }
+    .conv-item.active { background: var(--bg-2); }
+
+    /* ─── Avatar ──────────────────────────────────────── */
+    .avatar { border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .avatar-placeholder { border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 600; color: white; }
+
+    /* ─── Nav sidebar ─────────────────────────────────── */
+    .nav-icon { width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 12px; cursor: pointer; color: var(--text-muted); transition: background .15s, color .15s; }
+    .nav-icon:hover { background: var(--bg-hover); color: var(--text); }
+    .nav-icon.active { color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); }
+
+    /* ─── File preview ────────────────────────────────── */
+    .file-preview { background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+
+    .chat-logo { display:inline-grid; place-items:center; width:44px; height:44px; border-radius:16px; background:var(--primary); color:#fff; box-shadow:0 12px 24px rgba(34,197,94,.24); text-decoration:none; }
+    .chat-logo svg { width:25px; height:25px; fill:currentColor; }
+    .chat-logo-sm { width:52px; height:52px; border-radius:18px; }
+  
+    /* Mobile sidebar/menu */
+    #menu-btn { position: fixed; left: 12px; top: 12px; z-index: 1200; width: 44px; height: 44px; display: none; align-items: center; justify-content: center; background: var(--bg); border-radius: 10px; box-shadow: var(--shadow); }
+    @media (max-width: 767px) { #menu-btn { display: flex; } }
+    @media (max-width: 767px) { body:has(#chat-app.chat-open) #menu-btn { display: none; } }
+
+    .mobile-sidebar { position: fixed; top: 0; left: 0; height: 100%; width: 280px; max-width: 86vw; background: var(--bg); z-index: 1210; transform: translateX(-110%); transition: transform .22s ease; box-shadow: 0 18px 50px rgba(0,0,0,.24); padding: 18px; border-right: 1px solid var(--border); }
+    .mobile-sidebar.open { transform: translateX(0); }
+    .mobile-sidebar .close-btn { position: absolute; right: 12px; top: 12px; }
+    .mobile-sidebar .sidebar-brand { display:flex; align-items:center; gap:10px; }
+    .mobile-sidebar .brand-title { font-weight:800; font-size:18px; margin-left:6px; color:var(--text); }
+    .mobile-sidebar nav { margin-top: 22px; margin-bottom: 72px; display: flex; flex-direction: column; gap: 8px; }
+    .mobile-sidebar .nav-item,
+    .mobile-sidebar .theme-btn,
+    .mobile-sidebar a.logout-btn { display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; border-radius: 10px; color: var(--text); background: var(--bg-2); border: 1px solid var(--border); text-decoration: none; font-size: 14px; font-weight: 700; }
+    .mobile-sidebar .nav-item:hover,
+    .mobile-sidebar .theme-btn:hover,
+    .mobile-sidebar a.logout-btn:hover { background: var(--bg-hover); }
+    .mobile-sidebar .sidebar-footer { position: absolute; bottom: 16px; left: 16px; right: 16px; }
+
+    .mobile-sidebar-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 1205; display: none; }
+    .mobile-sidebar-backdrop.open { display: block; }
+
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+  {% if request.user.is_authenticated %}
+  <button id="menu-btn" class="icon-btn" aria-label="Menu" title="Menu">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+
+  <div id="mobile-sidebar" class="mobile-sidebar" aria-hidden="true">
+    <button id="mobile-sidebar-close" class="icon-btn close-btn" aria-label="Close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <nav>
+      <div class="sidebar-brand">
+        <a href="{% url 'chat:index' %}" class="chat-logo chat-logo-sm" aria-label="Chattie home">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.03 2 11c0 2.65 1.27 5.02 3.29 6.67L4.4 22l4.64-2.27c.93.18 1.92.27 2.96.27 5.52 0 10-4.03 10-9S17.52 2 12 2Zm-3.4 8.8a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Zm3.4 0a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Zm3.4 0a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Z"/></svg>
+        </a>
+        <span class="brand-title">Chattie</span>
+      </div>
+      <a href="{% url 'chat:index' %}" class="nav-item">Chats</a>
+      <a href="{% url 'accounts:profile' %}" class="nav-item">Profile</a>
+      <button type="button" class="theme-btn" data-theme-toggle>Toggle theme</button>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="{% url 'account_logout' %}" class="logout-btn">Logout</a>
+    </div>
+  </div>
+  <div id="mobile-sidebar-backdrop" class="mobile-sidebar-backdrop" aria-hidden="true"></div>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+
+  <div id="toast-container"></div>
+
+  <script>
+    // ─── Dark mode ────────────────────────────────────────
+    (function() {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    })();
+
+    function toggleDark() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    }
+
+    // ─── Toast ────────────────────────────────────────────
+    function showToast(msg, type = 'ok') {
+      const el = document.createElement('div');
+      el.className = `toast toast-${type}`;
+      el.textContent = msg;
+      document.getElementById('toast-container').appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+
+    // ─── CSRF ─────────────────────────────────────────────
+    function getCookie(name) {
+      return document.cookie.split(';').map(c => c.trim())
+        .find(c => c.startsWith(name + '='))
+        ?.split('=')[1] ?? null;
+    }
+    window.CSRF_TOKEN = getCookie('csrftoken') || '{{ csrf_token }}';
+
+    // Mobile sidebar toggle
+    (function(){
+      const btn = document.getElementById('menu-btn');
+      const sidebar = document.getElementById('mobile-sidebar');
+      const backdrop = document.getElementById('mobile-sidebar-backdrop');
+      const close = document.getElementById('mobile-sidebar-close');
+      function open() { if(!sidebar || !backdrop) return; sidebar.classList.add('open'); backdrop.classList.add('open'); sidebar.setAttribute('aria-hidden','false'); backdrop.setAttribute('aria-hidden','false'); }
+      function closeSidebar(){ if(!sidebar || !backdrop) return; sidebar.classList.remove('open'); backdrop.classList.remove('open'); sidebar.setAttribute('aria-hidden','true'); backdrop.setAttribute('aria-hidden','true'); }
+      if(btn){ btn.addEventListener('click', open); }
+      if(close){ close.addEventListener('click', closeSidebar); }
+      if(backdrop){ backdrop.addEventListener('click', closeSidebar); }
+      document.querySelectorAll('[data-theme-toggle]').forEach((el) => {
+        el.addEventListener('click', toggleDark);
+      });
+      document.querySelectorAll('[data-password-toggle]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const input = document.getElementById(btn.getAttribute('data-password-toggle'));
+          if (!input) return;
+          const show = input.type === 'password';
+          input.type = show ? 'text' : 'password';
+          btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        });
+      });
+      // close on Escape
+      document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeSidebar(); });
+    })();
+  </script>
+
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,20 @@
+[project]
+name = "chattie"
+version = "0.1.0"
+description = "WhatsApp-like real-time chat application built with Django"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.1,<6.0",
+    "channels>=4.1",
+    "daphne>=4.1",
+    "django-allauth[socialaccount]>=65.0",
+    "Pillow>=10.4",
+    "python-decouple>=3.8",
+    "environs>=9.3.0",
+    "whitenoise>=6.7",
+    "aiofiles>=24.1",
+    "channels-redis>=4.2",
+]
+
+[tool.uv]
+dev-dependencies = []
